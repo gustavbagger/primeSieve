@@ -12,4 +12,5 @@ func main() {
 
 	fmt.Printf("%5.2e\n", Prod(append(primeList[:33], primeList[218])))
 	pritnIntervals()
+
 }
