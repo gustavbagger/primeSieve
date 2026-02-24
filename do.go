@@ -36,6 +36,7 @@ func printIntervals(omegaMax, omegaMin int) {
 			omega,
 			sBest,
 		)
+
 	}
 }
 
