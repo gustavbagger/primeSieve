@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"os"
 	"strconv"
 
@@ -78,10 +79,21 @@ func indexesToValues(indexes, allValues []int) []int {
 }
 
 func validIndexSet(indexes, allValues []int) bool {
-	return pr.IsPrime(Prod(indexesToValues(indexes, allValues)) + 1)
+	prod := big.NewInt(1)
+	for _, index := range indexes {
+		prod.Mul(prod, big.NewInt(int64(allValues[index])))
+	}
+	prod.Add(prod, big.NewInt(1))
+	return prod.ProbablyPrime(32)
 }
 
-func treeSearch(position, currentProduct, bound int, indexes, currentGuess, allValues []int) {
+func treeSearch(
+	position int,
+	currentLog, boundLog float64,
+	currentProd *big.Int,
+	indexes, currentGuess, allValues []int,
+	logs []float64,
+) {
 	if position == len(indexes) {
 		if validIndexSet(currentGuess, allValues) {
 			fmt.Println("--------------------------------------------")
@@ -91,32 +103,59 @@ func treeSearch(position, currentProduct, bound int, indexes, currentGuess, allV
 	}
 
 	index := indexes[position]
-	i := allValues[index]
+	val := allValues[index]
+	valLog := logs[index]
 
-	nextProduct := currentProduct * i
-	if nextProduct > bound {
+	if currentLog+valLog > boundLog {
 		return
 	}
 
-	currentGuess = append(currentGuess, index)
-	currentProduct = nextProduct
+	nextGuess := append(append([]int{}, currentGuess...), index)
+	nextProd := new(big.Int).Mul(currentProd, big.NewInt(int64(val)))
 
-	treeSearch(position+1, currentProduct, bound, indexes, currentGuess, allValues)
+	treeSearch(
+		position+1,
+		currentLog+valLog,
+		boundLog,
+		nextProd,
+		indexes,
+		nextGuess,
+		allValues,
+		logs,
+	)
+
+	logAcc := currentLog + valLog
+	prodAcc := new(big.Int).Set(nextProd)
+	guessAcc := append([]int{}, nextGuess...)
 
 	for {
-		nextProduct = currentProduct * i
-		if nextProduct > bound {
+		logAcc += valLog
+		if logAcc > boundLog {
 			return
 		}
-		currentGuess = append(currentGuess, index)
-		currentProduct = nextProduct
 
-		treeSearch(position+1, currentProduct, bound, indexes, currentGuess, allValues)
+		guessAcc = append(guessAcc, index)
+		prodAcc.Mul(prodAcc, big.NewInt(int64(val)))
+
+		treeSearch(
+			position+1,
+			logAcc,
+			boundLog,
+			new(big.Int).Set(prodAcc),
+			indexes,
+			guessAcc,
+			allValues,
+			logs,
+		)
 	}
 }
 
-func suffSmall(bound int, indexes, allValues []int) bool {
-	return Prod(indexesToValues(indexes, allValues)) <= bound
+func suffSmallLog(boundLog float64, indexes []int, logs []float64) bool {
+	var sum float64
+	for _, index := range indexes {
+		sum += logs[index]
+	}
+	return sum <= boundLog
 }
 
 type Status int
@@ -127,10 +166,24 @@ const (
 	Stop
 )
 
-func recursiveLoop(currentDepth, maxDepth, maxIndex, upperBound int, indexes, primeList []int) Status {
+func recursiveLoop(
+	currentDepth, maxDepth, maxIndex int,
+	boundLog float64,
+	indexes, primeList []int,
+	logs []float64,
+) Status {
+
 	if currentDepth == maxDepth {
-		fmt.Println(suffSmall(upperBound, indexes, primeList))
-		treeSearch(0, 1, upperBound, indexes, []int{}, primeList)
+		fmt.Println(suffSmallLog(boundLog, indexes, logs))
+		treeSearch(
+			0,
+			0,
+			boundLog,
+			big.NewInt(1),
+			indexes,
+			[]int{},
+			primeList,
+			logs)
 		return Continue
 	}
 	startIndex := 0
@@ -141,11 +194,18 @@ func recursiveLoop(currentDepth, maxDepth, maxIndex, upperBound int, indexes, pr
 	for i := startIndex; i <= maxIndex-(maxDepth-currentDepth); i++ {
 		indexes[currentDepth] = i
 
-		if !suffSmall(upperBound, indexes, primeList) {
+		if !suffSmallLog(boundLog, indexes[:currentDepth+1], logs) {
 			return Backtrack
 		}
 
-		status := recursiveLoop(currentDepth+1, maxDepth, maxIndex, upperBound, indexes, primeList)
+		status := recursiveLoop(
+			currentDepth+1,
+			maxDepth,
+			maxIndex,
+			boundLog,
+			indexes,
+			primeList,
+			logs)
 
 		switch status {
 		case Continue:
