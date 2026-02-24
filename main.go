@@ -2,37 +2,46 @@ package main
 
 import (
 	"fmt"
-	"math"
-
-	pr "github.com/fxtlabs/primes"
+	"os"
+	"strconv"
 )
 
 func main() {
-
-	omega := 34
-	// bound is a * 10^b
-	a := 1
-	b := 55
-	boundLog := math.Log(float64(a) * math.Pow10(b))
-	primeList := pr.Sieve(2000)
-	logs := make([]float64, len(primeList))
-
-	for i, p := range primeList {
-		logs[i] = math.Log(float64(p))
+	switch len(os.Args) {
+	case 2:
+		a, err := strconv.Atoi(os.Args[1])
+		if err != nil {
+			return
+		}
+		fmt.Println("omega intervals:")
+		printIntervals(a, a)
+	case 3:
+		a, err := strconv.Atoi(os.Args[1])
+		if err != nil {
+			return
+		}
+		b, err := strconv.Atoi(os.Args[2])
+		if err != nil {
+			return
+		}
+		fmt.Println("omega intervals:")
+		printIntervals(a, b)
+	case 4:
+		a, err := strconv.Atoi(os.Args[1])
+		if err != nil {
+			return
+		}
+		b, err := strconv.Atoi(os.Args[2])
+		if err != nil {
+			return
+		}
+		c, err := strconv.Atoi(os.Args[3])
+		if err != nil {
+			return
+		}
+		fmt.Printf("searching for omega = %v below %v*10^%v:\n", a, b, c)
+		search(a, b, c)
+	default:
+		fmt.Println("wrong args")
 	}
-
-	maxIndex := len(primeList) - 1
-	indexes := make([]int, omega)
-
-	recursiveLoop(
-		0,
-		omega,
-		maxIndex,
-		boundLog,
-		indexes,
-		primeList,
-		logs,
-	)
-	//fmt.Println(logs)
-	fmt.Println("--------------------------------------------")
 }
