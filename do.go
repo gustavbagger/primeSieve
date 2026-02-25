@@ -43,7 +43,7 @@ func computePrimeCutoff(omega int, boundLog float64, primeList []int, logs []flo
 
 func printIntervals(omegaMax, omegaMin int) {
 	//careful here, we need len(primeList)>= omega
-	primeList := pr.Sieve(1000000)
+	primeList := pr.Sieve(500)
 	for omega := omegaMax; omega >= omegaMin; omega-- {
 		sBest := 0
 		deltaBest := 1.0
@@ -84,7 +84,7 @@ var nextPercent int
 func search(omega, a, b int) {
 
 	boundLog := math.Log(float64(a) * math.Pow10(b))
-	fullPrimeList := pr.Sieve(5000)
+	fullPrimeList := pr.Sieve(1000000)
 	logs := make([]float64, len(fullPrimeList))
 
 	for i, p := range fullPrimeList {
