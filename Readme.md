@@ -1,3 +1,4 @@
+# An algorithm for computing primes p with prescribed omega(p-1) values
 The point of this project is to efficiently compute all integers n below some dynamic bound satisfying
 1) n has exactly omega distinct prime factors for some fixed omega
 2) `n+1` is a prime number p
