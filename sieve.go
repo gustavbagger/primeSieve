@@ -2,6 +2,14 @@ package main
 
 import "math"
 
+func deltaSum(list []int) float64 {
+	var sum float64
+	for _, p := range list {
+		sum -= 1.0 / float64(p)
+	}
+	return sum + 1
+}
+
 var bestS []int
 
 func initBestS(omegaMax int, primeList []int) {

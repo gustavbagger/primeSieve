@@ -2,32 +2,7 @@ package main
 
 import (
 	"fmt"
-	"math/big"
 )
-
-func deltaSum(list []int) float64 {
-	var sum float64
-	for _, p := range list {
-		sum -= 1.0 / float64(p)
-	}
-	return sum + 1
-}
-
-func Prod(list []int) *big.Int {
-	prod := big.NewInt(1)
-	for _, p := range list {
-		prod.Mul(prod, big.NewInt(int64(p)))
-	}
-	return prod
-}
-
-func indexesToValues(indexes, allValues []int) []int {
-	output := make([]int, len(indexes))
-	for i, index := range indexes {
-		output[i] = allValues[index]
-	}
-	return output
-}
 
 func treeSearch(
 	position int,
@@ -42,7 +17,8 @@ func treeSearch(
 
 		if !modState.isInvalid() && validExponentSet(indexes, exponents, allValues) {
 			fmt.Println("--------------------------------------------")
-			fmt.Printf("%v\n", indexesToValues(indexes, allValues))
+			fmt.Printf("p-indexes: %v\n", indexes)
+			fmt.Printf("exponents: %v\n", exponents)
 		}
 		return
 	}
@@ -192,7 +168,7 @@ func recursiveLoop(
 		nextIndex := i + 1
 
 		if !canComplete(boundLog, newLog, nextIndex, remainingDepth, logs) {
-			continue
+			break
 		}
 
 		status := recursiveLoop(
