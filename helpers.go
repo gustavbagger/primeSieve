@@ -29,16 +29,6 @@ func indexesToValues(indexes, allValues []int) []int {
 	return output
 }
 
-func validExponentSet(indexes, exponents, allValues []int) bool {
-	prod := big.NewInt(1)
-	for i, index := range indexes {
-		p := big.NewInt(int64(allValues[index]))
-		prod.Mul(prod, new(big.Int).Exp(p, big.NewInt(int64(exponents[i])), nil))
-	}
-	prod.Add(prod, big.NewInt(1))
-	return prod.ProbablyPrime(32)
-}
-
 func treeSearch(
 	position int,
 	omega int,
@@ -46,10 +36,11 @@ func treeSearch(
 	indexes, allValues []int,
 	logs []float64,
 	exponents []int,
+	modState *ModState,
 ) {
 	if position == omega {
 
-		if validExponentSet(indexes, exponents, allValues) {
+		if !modState.isInvalid() && validExponentSet(indexes, exponents, allValues) {
 			fmt.Println("--------------------------------------------")
 			fmt.Printf("%v\n", indexesToValues(indexes, allValues))
 		}
@@ -71,6 +62,16 @@ func treeSearch(
 	for logAcc <= optSieveBound {
 		exponents[position] = e
 
+		newMod := &ModState{mods: append([]int{}, modState.mods...)}
+		newMod.pushPrimeExp(allValues[index], e)
+
+		//bail early if we know this path can't yield a valid tuple
+		if newMod.isInvalid() {
+			e++
+			logAcc += logp
+			continue
+		}
+
 		treeSearch(
 			position+1,
 			omega,
@@ -80,6 +81,7 @@ func treeSearch(
 			allValues,
 			logs,
 			exponents,
+			newMod,
 		)
 		e++
 		logAcc += logp
@@ -123,17 +125,18 @@ func recursiveLoop(
 ) Status {
 
 	if currentDepth == maxDepth {
-		indexesCopy := append([]int{}, indexes...)
 		exponents := make([]int, maxDepth)
+		modState := newModState()
 		treeSearch(
 			0,
 			maxDepth,
 			0,
 			boundLog,
-			indexesCopy,
+			indexes,
 			primeList,
 			logs,
 			exponents,
+			modState,
 		)
 		return Continue
 	}
@@ -165,14 +168,13 @@ func recursiveLoop(
 		if !canComplete(boundLog, newLog, nextIndex, remainingDepth, logs) {
 			continue
 		}
-		indexesCopy := append([]int{}, indexes...)
 
 		status := recursiveLoop(
 			currentDepth+1,
 			maxDepth,
 			maxIndex,
 			boundLog,
-			indexesCopy,
+			indexes,
 			primeList,
 			logs,
 			newLog,
