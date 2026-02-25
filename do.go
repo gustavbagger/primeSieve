@@ -3,9 +3,43 @@ package main
 import (
 	"fmt"
 	"math"
+	"sort"
 
 	pr "github.com/fxtlabs/primes"
 )
+
+func computePrimeCutoff(omega int, boundLog float64, primeList []int, logs []float64) int {
+	s := bestS[omega]
+
+	// log of product of smallest ω−1 primes
+	baseLog := 0.0
+	for i := 0; i < omega-1; i++ {
+		baseLog += logs[i]
+	}
+
+	// Try primes from largest to smallest
+	for idx := len(primeList) - 1; idx >= omega-1; idx-- {
+		p := primeList[idx]
+		logMin := baseLog + math.Log(float64(p))
+
+		// Build hypothetical indexes: smallest ω−1 primes + p
+		indexes := make([]int, omega)
+		for i := 0; i < omega-1; i++ {
+			indexes[i] = i
+		}
+		indexes[omega-1] = idx
+
+		sieveBound := pSieveLog(omega, s, indexes, primeList)
+		effectiveBound := math.Min(boundLog, sieveBound)
+
+		if logMin <= effectiveBound {
+			return p
+		}
+	}
+
+	// fallback: only smallest ω primes fit
+	return primeList[omega-1]
+}
 
 func printIntervals(omegaMax, omegaMin int) {
 	//careful here, we need len(primeList)>= omega
@@ -50,14 +84,21 @@ var nextPercent int
 func search(omega, a, b int) {
 
 	boundLog := math.Log(float64(a) * math.Pow10(b))
-	primeList := pr.Sieve(5000)
-	logs := make([]float64, len(primeList))
+	fullPrimeList := pr.Sieve(5000)
+	logs := make([]float64, len(fullPrimeList))
 
-	for i, p := range primeList {
+	for i, p := range fullPrimeList {
 		logs[i] = math.Log(float64(p))
 	}
 
-	initBestS(omega, primeList)
+	initBestS(omega, fullPrimeList)
+
+	cutoff := computePrimeCutoff(omega, boundLog, fullPrimeList, logs)
+	fmt.Println("Exact prime cutoff=", cutoff)
+
+	limit := sort.SearchInts(fullPrimeList, cutoff+1)
+	primeList := fullPrimeList[:limit]
+	logs = logs[:limit]
 
 	maxIndex := len(primeList) - 1
 	indexes := make([]int, omega)

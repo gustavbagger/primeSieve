@@ -134,21 +134,44 @@ func treeSearch(
 	}
 
 	index := indexes[position]
-	//p := allValues[index]
+	p := allValues[index]
 	logp := logs[index]
 
 	e := 1
 	logAcc := currentLog + logp
+
+	//precompute bases for modular exponentiation
+	bases := make([]int, len(smallPrimes))
+	for i, sp := range smallPrimes {
+		bases[i] = p % sp
+	}
+	//initialize pe to p^1 mod smallPrimes
+	pe := make([]int, len(smallPrimes))
+	for i := range pe {
+		pe[i] = bases[i]
+	}
+
 	for logAcc <= optSieveBound {
 		exponents[position] = e
 
-		newMod := &ModState{mods: append([]int{}, modState.mods...)}
-		newMod.pushPrimeExp(allValues[index], e)
+		//compute new mod state after including p^e
+		newMods := make([]int, len(modState.mods))
+		copy(newMods, modState.mods)
+
+		//update newMods with p^e
+		for i, sp := range smallPrimes {
+			newMods[i] = (newMods[i] * pe[i]) % sp
+		}
+
+		newMod := &ModState{mods: newMods}
 
 		//bail early if we know this path can't yield a valid tuple
 		if newMod.isInvalid() {
 			e++
 			logAcc += logp
+			for i, sp := range smallPrimes {
+				pe[i] = (pe[i] * bases[i]) % sp
+			}
 			continue
 		}
 
@@ -165,6 +188,9 @@ func treeSearch(
 		)
 		e++
 		logAcc += logp
+		for i, sp := range smallPrimes {
+			pe[i] = (pe[i] * bases[i]) % sp
+		}
 	}
 }
 
@@ -205,7 +231,6 @@ func recursiveLoop(
 ) Status {
 
 	if currentDepth == maxDepth {
-		indexesCopy := append([]int{}, indexes...)
 		exponents := make([]int, maxDepth)
 		modState := newModState()
 		treeSearch(
@@ -213,7 +238,7 @@ func recursiveLoop(
 			maxDepth,
 			0,
 			boundLog,
-			indexesCopy,
+			indexes,
 			primeList,
 			logs,
 			exponents,
@@ -249,14 +274,13 @@ func recursiveLoop(
 		if !canComplete(boundLog, newLog, nextIndex, remainingDepth, logs) {
 			continue
 		}
-		indexesCopy := append([]int{}, indexes...)
 
 		status := recursiveLoop(
 			currentDepth+1,
 			maxDepth,
 			maxIndex,
 			boundLog,
-			indexesCopy,
+			indexes,
 			primeList,
 			logs,
 			newLog,
@@ -367,7 +391,13 @@ package main
 
 import "math/big"
 
-var smallPrimes = []int{3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47}
+var smallPrimes = []int{
+	101, 103, 107, 109, 113, 127, 131, 137, 139, 149,
+	151, 157, 163, 167, 173, 179, 181, 191, 193, 197,
+	199, 211, 223, 227, 229, 233, 239, 241, 251, 257,
+	263, 269, 271, 277, 281, 283, 293, 307, 311, 313,
+	317, 331, 337, 347, 349, 353, 359, 367, 373, 379,
+}
 
 type ModState struct {
 	mods []int

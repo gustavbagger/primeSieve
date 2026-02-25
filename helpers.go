@@ -54,21 +54,44 @@ func treeSearch(
 	}
 
 	index := indexes[position]
-	//p := allValues[index]
+	p := allValues[index]
 	logp := logs[index]
 
 	e := 1
 	logAcc := currentLog + logp
+
+	//precompute bases for modular exponentiation
+	bases := make([]int, len(smallPrimes))
+	for i, sp := range smallPrimes {
+		bases[i] = p % sp
+	}
+	//initialize pe to p^1 mod smallPrimes
+	pe := make([]int, len(smallPrimes))
+	for i := range pe {
+		pe[i] = bases[i]
+	}
+
 	for logAcc <= optSieveBound {
 		exponents[position] = e
 
-		newMod := &ModState{mods: append([]int{}, modState.mods...)}
-		newMod.pushPrimeExp(allValues[index], e)
+		//compute new mod state after including p^e
+		newMods := make([]int, len(modState.mods))
+		copy(newMods, modState.mods)
+
+		//update newMods with p^e
+		for i, sp := range smallPrimes {
+			newMods[i] = (newMods[i] * pe[i]) % sp
+		}
+
+		newMod := &ModState{mods: newMods}
 
 		//bail early if we know this path can't yield a valid tuple
 		if newMod.isInvalid() {
 			e++
 			logAcc += logp
+			for i, sp := range smallPrimes {
+				pe[i] = (pe[i] * bases[i]) % sp
+			}
 			continue
 		}
 
@@ -85,6 +108,9 @@ func treeSearch(
 		)
 		e++
 		logAcc += logp
+		for i, sp := range smallPrimes {
+			pe[i] = (pe[i] * bases[i]) % sp
+		}
 	}
 }
 
