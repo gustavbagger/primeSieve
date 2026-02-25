@@ -29,10 +29,11 @@ func indexesToValues(indexes, allValues []int) []int {
 	return output
 }
 
-func validIndexSet(indexes, allValues []int) bool {
+func validExponentSet(indexes, exponents, allValues []int) bool {
 	prod := big.NewInt(1)
-	for _, index := range indexes {
-		prod.Mul(prod, big.NewInt(int64(allValues[index])))
+	for i, index := range indexes {
+		p := big.NewInt(int64(allValues[index]))
+		prod.Mul(prod, new(big.Int).Exp(p, big.NewInt(int64(exponents[i])), nil))
 	}
 	prod.Add(prod, big.NewInt(1))
 	return prod.ProbablyPrime(32)
@@ -40,73 +41,69 @@ func validIndexSet(indexes, allValues []int) bool {
 
 func treeSearch(
 	position int,
+	omega int,
 	currentLog, boundLog float64,
-	currentProd *big.Int,
-	indexes, currentGuess, allValues []int,
+	indexes, allValues []int,
 	logs []float64,
+	exponents []int,
 ) {
-	if position == len(indexes) {
-		if validIndexSet(currentGuess, allValues) {
+	if position == omega {
+
+		if validExponentSet(indexes, exponents, allValues) {
 			fmt.Println("--------------------------------------------")
-			fmt.Printf("%v\n", indexesToValues(currentGuess, allValues))
+			fmt.Printf("%v\n", indexesToValues(indexes, allValues))
 		}
+		return
+	}
+
+	optSieveBound := optSieveBoundLog(omega, indexes, allValues, boundLog)
+
+	if currentLog > optSieveBound {
 		return
 	}
 
 	index := indexes[position]
-	val := allValues[index]
-	valLog := logs[index]
+	//p := allValues[index]
+	logp := logs[index]
 
-	if currentLog+valLog > boundLog {
-		return
-	}
-
-	nextGuess := append(append([]int{}, currentGuess...), index)
-	nextProd := new(big.Int).Mul(currentProd, big.NewInt(int64(val)))
-
-	treeSearch(
-		position+1,
-		currentLog+valLog,
-		boundLog,
-		nextProd,
-		indexes,
-		nextGuess,
-		allValues,
-		logs,
-	)
-
-	logAcc := currentLog + valLog
-	prodAcc := new(big.Int).Set(nextProd)
-	guessAcc := append([]int{}, nextGuess...)
-
-	for {
-		logAcc += valLog
-		if logAcc > boundLog {
-			return
-		}
-
-		guessAcc = append(guessAcc, index)
-		prodAcc.Mul(prodAcc, big.NewInt(int64(val)))
+	e := 1
+	logAcc := currentLog + logp
+	for logAcc <= optSieveBound {
+		exponents[position] = e
 
 		treeSearch(
 			position+1,
+			omega,
 			logAcc,
 			boundLog,
-			new(big.Int).Set(prodAcc),
 			indexes,
-			guessAcc,
 			allValues,
 			logs,
+			exponents,
 		)
+		e++
+		logAcc += logp
 	}
 }
 
-func suffSmallLog(boundLog float64, indexes []int, logs []float64) bool {
-	var sum float64
-	for _, index := range indexes {
-		sum += logs[index]
+func canComplete(
+	boundLog float64,
+	currentLog float64,
+	nextIndex int,
+	remaining int,
+	logs []float64,
+) bool {
+	// Not enough primes left to complete the tuple
+	if nextIndex+remaining > len(logs) {
+		return false
 	}
-	return sum <= boundLog
+
+	// sum logs of the next `remaining` smallest primes starting at nextIndex
+	var future float64
+	for i := 0; i < remaining; i++ {
+		future += logs[nextIndex+i]
+	}
+	return currentLog+future <= boundLog
 }
 
 type Status int
@@ -122,19 +119,22 @@ func recursiveLoop(
 	boundLog float64,
 	indexes, primeList []int,
 	logs []float64,
+	currentLog float64,
 ) Status {
 
 	if currentDepth == maxDepth {
-
+		indexesCopy := append([]int{}, indexes...)
+		exponents := make([]int, maxDepth)
 		treeSearch(
 			0,
+			maxDepth,
 			0,
 			boundLog,
-			big.NewInt(1),
-			indexes,
-			indexes,
+			indexesCopy,
 			primeList,
-			logs)
+			logs,
+			exponents,
+		)
 		return Continue
 	}
 	startIndex := 0
@@ -142,26 +142,44 @@ func recursiveLoop(
 		startIndex = indexes[currentDepth-1] + 1
 	}
 
-	for i := startIndex; i <= maxIndex-(maxDepth-currentDepth); i++ {
+	limit := maxIndex - (maxDepth - currentDepth) + 1
+	for i := startIndex; i < limit; i++ {
+
+		if currentDepth == 0 {
+			doneTopLevel++
+			percent := 100 * doneTopLevel / totalTopLevel
+			if percent >= nextPercent {
+				fmt.Printf("Progress: %v%%\n", percent)
+				nextPercent += 1
+			}
+
+		}
+
 		indexes[currentDepth] = i
 
-		if !suffSmallLog(boundLog, indexes[:currentDepth+1], logs) {
-			return Backtrack
+		newLog := currentLog + logs[i]
+
+		remainingDepth := maxDepth - (currentDepth + 1)
+		nextIndex := i + 1
+
+		if !canComplete(boundLog, newLog, nextIndex, remainingDepth, logs) {
+			continue
 		}
+		indexesCopy := append([]int{}, indexes...)
 
 		status := recursiveLoop(
 			currentDepth+1,
 			maxDepth,
 			maxIndex,
 			boundLog,
-			indexes,
+			indexesCopy,
 			primeList,
-			logs)
+			logs,
+			newLog,
+		)
 
 		switch status {
-		case Continue:
-			continue
-		case Backtrack:
+		case Continue, Backtrack:
 			continue
 		case Stop:
 			return Stop
