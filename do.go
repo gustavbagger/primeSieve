@@ -43,7 +43,7 @@ func computePrimeCutoff(omega int, boundLog float64, primeList []int, logs []flo
 
 func printIntervals(omegaMax, omegaMin int) {
 	//careful here, we need len(primeList)>= omega
-	primeList := pr.Sieve(1000)
+	primeList := pr.Sieve(1000000)
 	for omega := omegaMax; omega >= omegaMin; omega-- {
 		sBest := 0
 		deltaBest := 1.0
