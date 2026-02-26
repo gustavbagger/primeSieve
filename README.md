@@ -10,7 +10,7 @@ A long-standing conjecture by Grosswald states that, for all primes `p>409`, the
 ## Quick Start
 ```bash
 # install using Go toolchain
-go install github.com/gustavbagger/PropertyZ
+go install github.com/gustavbagger/primeSieve
 
 # run
 PropertyZ <arg1> <?arg2> <?arg3>
@@ -19,13 +19,13 @@ PropertyZ <arg1> <?arg2> <?arg3>
 The programme can be run with 1,2 or 3 arguments. If the programme is run with 1 or 2 arguments, it will provide an interval (dependant on omega) in which each value n must lie in order to satisfy the requirements. It will also print out the optimal choices of s and delta in order to sieve effectively. If the programme is run with 3 arguments, it will print out any integer n satisfying the criteria in the given search-space. The following provides a control flow for what happens:
 ### compute the intervals for omega = n
 ```
-PropertyZ <arg1>
+primeSieve <arg1>
 -> runs printIntervals(arg1,arg1)
   -> prints "${upperBound} > p > ${lowerBound} ---- omega,s,delta = ${omega},${optimal s value},${optimal delta value}"
 ```
 ### compute the intervals for n >= omega >= m
 ```
-PropertyZ <arg1> <arg2>
+primeSieve <arg1> <arg2>
 -> runs printIntervals(arg1,arg2)
   -> prints "${upperBound} > p > ${lowerBound} ---- omega,s,delta = ${arg1},${optimal s value},${optimal delta value}"
   -> prints "${upperBound} > p > ${lowerBound} ---- omega,s,delta = ${arg1 - 1},${optimal s value},${optimal delta value}"
@@ -34,7 +34,7 @@ PropertyZ <arg1> <arg2>
 ```
 ### compute all admissible values n with omega = n and n+1=p <= a * 10^b
 ```
-PropertyZ <arg1> <arg2> <arg3>
+primeSieve <arg1> <arg2> <arg3>
 -> runs search(arg1,arg2,arg3) corresponding to omega = arg1 with p<= arg2 * 10^arg3
   -> preloads all primes p <= 10^6
   -> computes initial optimal value for s
@@ -60,8 +60,8 @@ PropertyZ <arg1> <arg2> <arg3>
 ### Clone the repo
 
 ```bash
-git clone https://github.com/gustavbagger/PropertyZ
-cd PropertyZ
+git clone https://github.com/gustavbagger/primeSieve
+cd primeSieve
 ```
 
 ### Build the compiled binary
