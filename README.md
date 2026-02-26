@@ -4,7 +4,7 @@ This library provides an efficient algorithm for computing all integers n below 
 2) `n+1` is a prime number p
 The dynamic bound in question is a prime sieve given by `2*r*(2 + (s-1)/delta)^r p^{1/4(1+1/r)} < p^{1/2}-2` and `delta>0` where integer s can be chosen freely in the interval `[0,omega]` and `delta = 1 - \sum_{i=1}^s(1/p_i)` for a choice of s distinct prime factors `p_i` of n. 
 ## Motivation
-A long-standing conjecture by Grosswald states that, for all primes `p>409`, the least primitive root modulo p is less than `p^{1/2} - 2`. The conjecture is resolved under the Generalised Riemann Hypothesis, and also unconditionally for `p>10^{56}`. This algorithm computes the sparse set of potential *bad primes* for which one needs to directly compute the least primitive root modulo p to varify the conjecture. 
+A long-standing conjecture by Grosswald states that, for all primes `p>409`, the least primitive root modulo p is less than `p^{1/2} - 2`. The conjecture is resolved under the Generalised Riemann Hypothesis, and also unconditionally for `p>10^{56}`. This algorithm computes the sparse set of potential *bad primes* for which one needs to directly compute the least primitive root modulo p to verify the conjecture. 
 
 > A slight modification of the sieving criterion used here would allow one to compute other sparse sets of primes subject to conditions **(1)** and **(2)**. For more information on the sieving techniques used, see [The Modified Prime Sieve](https://arxiv.org/abs/2507.21515).
 ## Quick Start
@@ -13,7 +13,7 @@ A long-standing conjecture by Grosswald states that, for all primes `p>409`, the
 go install github.com/gustavbagger/primeSieve
 
 # run
-PropertyZ <arg1> <?arg2> <?arg3>
+primeSieve <arg1> <?arg2> <?arg3>
 ```
 ## Usage
 The programme can be run with 1,2 or 3 arguments. If the programme is run with 1 or 2 arguments, it will provide an interval (dependant on omega) in which each value n must lie in order to satisfy the requirements. It will also print out the optimal choices of s and delta in order to sieve effectively. If the programme is run with 3 arguments, it will print out any integer n satisfying the criteria in the given search-space. The following provides a control flow for what happens:
