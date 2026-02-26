@@ -80,6 +80,7 @@ func printIntervals(omegaMax, omegaMin int) {
 var totalTopLevel int
 var doneTopLevel int
 var nextPercent int
+var count int = 0
 
 func search(omega, a, b int) {
 
@@ -106,7 +107,10 @@ func search(omega, a, b int) {
 	totalTopLevel = maxIndex - (omega - 1)
 	doneTopLevel = 0
 	nextPercent = 1
-
+	var exponents []int = make([]int, omega)
+	for i := range exponents {
+		exponents[i] = 1
+	}
 	recursiveLoop(
 		0,
 		omega,
@@ -116,6 +120,8 @@ func search(omega, a, b int) {
 		primeList,
 		logs,
 		0.0,
+		exponents,
 	)
 	fmt.Println("--------------------------------------------")
+	fmt.Println("total count: ", count)
 }
