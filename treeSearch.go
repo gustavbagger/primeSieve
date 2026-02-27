@@ -15,13 +15,11 @@ func treeSearch(
 	if currentLog > optSieveBound {
 		return
 	}
-	n, valid := validExponentSet(indexes, exponents, allValues)
+	_, valid := validExponentSet(indexes, exponents, allValues)
 	if valid {
 		count++
 		fmt.Println("--------------------------------------------")
-		fmt.Printf("%v\n", n)
 		fmt.Printf("%v\n", indexes)
-		fmt.Printf("%v\n", exponents)
 	}
 
 	index := indexes[position]
