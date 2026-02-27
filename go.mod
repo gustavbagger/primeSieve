@@ -1,4 +1,4 @@
-module github.com/gustavbagger/PropertyZ
+module github.com/gustavbagger/primeSieve
 
 go 1.25.4
 
