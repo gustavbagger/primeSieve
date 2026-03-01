@@ -42,6 +42,7 @@ func main() {
 		fmt.Printf("searching for omega = %v below %v*10^%v:\n", a, b, c)
 		search(a, b, c)
 	default:
-		fmt.Println("wrong args")
+		fmt.Println("requires 1,2 or 3 args. Example: \n",
+			"'primeSieve <n> <a> <b>'\n", "computes omega = n with p-1< a*10^b")
 	}
 }
