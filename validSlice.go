@@ -47,12 +47,14 @@ func (m *ModState) isInvalid() bool {
 func validExponentSet(indexes, exponents, allValues []int) (*big.Int, bool) {
 	prod := big.NewInt(1)
 	for i, index := range indexes {
-		pReg := allValues[index]
-		eReg := exponents[i]
-		p := big.NewInt(int64(pReg))
-		prod.Mul(prod, new(big.Int).Exp(p, big.NewInt(int64(eReg)), nil))
+		prod.Mul(
+			prod,
+			new(big.Int).Exp(
+				big.NewInt(int64(allValues[index])),
+				big.NewInt(int64(exponents[i])),
+				nil),
+		)
 	}
-	n := big.NewInt(0)
-	n.Add(prod, big.NewInt(1))
-	return n, n.ProbablyPrime(32)
+	prod.Add(prod, big.NewInt(1))
+	return prod, prod.ProbablyPrime(32)
 }
