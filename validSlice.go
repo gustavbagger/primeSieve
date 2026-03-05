@@ -58,3 +58,25 @@ func validExponentSet(indexes, exponents, allValues []int) (*big.Int, bool) {
 	prod.Add(prod, big.NewInt(1))
 	return prod, prod.ProbablyPrime(32)
 }
+
+// assuming indexes
+func expSetStrongPRP2(indexes, exponents, primeList []int) (*big.Int, bool) {
+
+	N := big.NewInt(1)
+	tmp := new(big.Int)
+
+	for i := range indexes {
+		p := big.NewInt(int64(primeList[indexes[i]]))
+		tmp.Exp(p, big.NewInt(int64(exponents[i])), nil)
+		N.Mul(N, tmp)
+	}
+	s := 0
+	if indexes[0] == 0 { //if 2 is in the product, set s to be its exponent
+		s = exponents[0]
+	}
+
+	d := new(big.Int).Rsh(N, uint(s)) //odd part of N
+
+	return montStrongPRP2(s, d, N)
+
+}
