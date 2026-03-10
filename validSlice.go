@@ -2,48 +2,6 @@ package main
 
 import "math/big"
 
-var smallPrimes = []int{
-	101, 103, 107, 109, 113, 127, 131, 137, 139, 149,
-	151, 157, 163, 167, 173, 179, 181, 191, 193, 197,
-	199, 211, 223, 227, 229, 233, 239, 241, 251, 257,
-	263, 269, 271, 277, 281, 283, 293, 307, 311, 313,
-	317, 331, 337, 347, 349, 353, 359, 367, 373, 379,
-}
-
-type ModState struct {
-	mods []int
-}
-
-func newModState() *ModState {
-	m := &ModState{
-		mods: make([]int, len(smallPrimes)),
-	}
-	for i := range m.mods {
-		m.mods[i] = 1
-	}
-	return m
-}
-
-func (m *ModState) pushPrimeExp(p, e int) {
-	for i, sp := range smallPrimes {
-		pe := 1
-		base := p % sp
-		for k := 0; k < e; k++ {
-			pe = (pe * base) % sp
-		}
-		m.mods[i] = (m.mods[i] * pe) % sp
-	}
-}
-
-func (m *ModState) isInvalid() bool {
-	for i, q := range smallPrimes {
-		if m.mods[i] == q-1 {
-			return true
-		}
-	}
-	return false
-}
-
 func validExponentSet(indexes, exponents, allValues []int) (*big.Int, bool) {
 	prod := big.NewInt(1)
 	for i, index := range indexes {
@@ -78,5 +36,27 @@ func expSetStrongPRP2(indexes, exponents, primeList []int) (*big.Int, bool) {
 	d := new(big.Int).Rsh(N, uint(s)) //odd part of N
 
 	return montStrongPRP2(s, d, N)
+
+}
+
+// assuming indexes
+func expSetStrongPRP2u192(indexes, exponents, primeList []int) (*Int, bool) {
+
+	N := NewInt(1)
+	tmp := new(Int)
+
+	for i := range indexes {
+		p := NewInt(uint64(primeList[indexes[i]]))
+		tmp.Exp(p, NewInt(uint64(exponents[i])))
+		N.Mul(N, tmp)
+	}
+	s := 0
+	if indexes[0] == 0 { //if 2 is in the product, set s to be its exponent
+		s = exponents[0]
+	}
+
+	d := new(Int).Rsh(N, uint(s)) //odd part of N
+
+	return montStrongPRP2u192(s, d, N)
 
 }
