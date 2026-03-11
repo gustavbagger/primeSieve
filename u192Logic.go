@@ -42,137 +42,248 @@ func sub192(a, b uint192) uint192 {
 	return uint192{Lo: lo, Mid: mid, Hi: hi}
 }
 
+func add192(a, b uint192) uint192 {
+	var out uint192
+	var carry uint64
+	out.Lo, carry = bits.Add64(a.Lo, b.Lo, 0)
+	out.Mid, carry = bits.Add64(a.Mid, b.Mid, carry)
+	out.Hi, _ = bits.Add64(a.Hi, b.Hi, carry)
+	return out
+}
+
 func mul192(a, b uint192) [6]uint64 {
 	var t [6]uint64
 
+	// helper to add a 128-bit value (hi:lo) into t[k..]
+	add128 := func(k int, hi, lo uint64) {
+		var c uint64
+		t[k], c = bits.Add64(t[k], lo, 0)
+		t[k+1], c = bits.Add64(t[k+1], hi, c)
+		i := k + 2
+		for c != 0 && i < 6 {
+			t[i], c = bits.Add64(t[i], 0, c)
+			i++
+		}
+	}
+
 	// a.Lo * b.Lo
-	lo, hi := bits.Mul64(a.Lo, b.Lo)
-	t[0], t[1] = lo, hi
+	hi, lo := bits.Mul64(a.Lo, b.Lo)
+	add128(0, hi, lo)
 
 	// a.Lo * b.Mid
-	lo, hi = bits.Mul64(a.Lo, b.Mid)
-	t[1], hi = bits.Add64(t[1], lo, 0)
-	t[2] += hi
+	hi, lo = bits.Mul64(a.Lo, b.Mid)
+	add128(1, hi, lo)
 
 	// a.Lo * b.Hi
-	lo, hi = bits.Mul64(a.Lo, b.Hi)
-	t[2], hi = bits.Add64(t[2], lo, 0)
-	t[3] += hi
+	hi, lo = bits.Mul64(a.Lo, b.Hi)
+	add128(2, hi, lo)
 
 	// a.Mid * b.Lo
-	lo, hi = bits.Mul64(a.Mid, b.Lo)
-	t[1], hi = bits.Add64(t[1], lo, 0)
-	t[2], hi = bits.Add64(t[2], hi, 0)
-	t[3] += hi
+	hi, lo = bits.Mul64(a.Mid, b.Lo)
+	add128(1, hi, lo)
 
 	// a.Mid * b.Mid
-	lo, hi = bits.Mul64(a.Mid, b.Mid)
-	t[2], hi = bits.Add64(t[2], lo, 0)
-	t[3], hi = bits.Add64(t[3], hi, 0)
-	t[4] += hi
+	hi, lo = bits.Mul64(a.Mid, b.Mid)
+	add128(2, hi, lo)
 
 	// a.Mid * b.Hi
-	lo, hi = bits.Mul64(a.Mid, b.Hi)
-	t[3], hi = bits.Add64(t[3], lo, 0)
-	t[4], hi = bits.Add64(t[4], hi, 0)
-	t[5] += hi
+	hi, lo = bits.Mul64(a.Mid, b.Hi)
+	add128(3, hi, lo)
 
 	// a.Hi * b.Lo
-	lo, hi = bits.Mul64(a.Hi, b.Lo)
-	t[2], hi = bits.Add64(t[2], lo, 0)
-	t[3], hi = bits.Add64(t[3], hi, 0)
-	t[4] += hi
+	hi, lo = bits.Mul64(a.Hi, b.Lo)
+	add128(2, hi, lo)
 
 	// a.Hi * b.Mid
-	lo, hi = bits.Mul64(a.Hi, b.Mid)
-	t[3], hi = bits.Add64(t[3], lo, 0)
-	t[4], hi = bits.Add64(t[4], hi, 0)
-	t[5] += hi
+	hi, lo = bits.Mul64(a.Hi, b.Mid)
+	add128(3, hi, lo)
 
 	// a.Hi * b.Hi
-	lo, hi = bits.Mul64(a.Hi, b.Hi)
-	t[4], hi = bits.Add64(t[4], lo, 0)
-	t[5] += hi
+	hi, lo = bits.Mul64(a.Hi, b.Hi)
+	add128(4, hi, lo)
 
 	return t
 }
 
-// MulRedc192 computes (x * y * R^-1) mod n for 192‑bit values,
-// where R = 2^192 and npi = -n^{-1} mod 2^64 (using n.Lo). npi is mont_one
-func MulRedc192(x, y, n uint192, npi uint64) uint192 {
-	// Step 1: t = x * y (384‑bit)
-	t := mul192(x, y) // t[0..5]
+func mulMod192(a, b uint192) uint192 {
+	t := mul192(a, b)
+	return uint192{Hi: t[2], Mid: t[1], Lo: t[0]}
+}
 
-	// k = 3 limbs
+// assuming 192>=n>=0
+func lSH192(x uint192, n int) uint192 {
+	var out uint192
+	switch {
+	case n < 64:
+		out.Hi = (x.Hi << n) | (x.Mid >> (64 - n))
+		out.Mid = (x.Mid << n) | (x.Lo >> (64 - n))
+		out.Lo = x.Lo << n
+	case n < 128:
+		s := n - 64
+		out.Hi = (x.Mid << s) | (x.Lo >> (64 - s))
+		out.Mid = x.Lo << s
+	default:
+		s := n - 128
+		out.Hi = x.Lo << s
+	}
+	return out
+}
+
+// assuming 192>=n>=0
+func rSH192(x uint192, n int) uint192 {
+	var out uint192
+	switch {
+	case n < 64:
+		out.Hi = x.Hi >> n
+		out.Mid = (x.Hi << (64 - n)) | (x.Mid >> n)
+		out.Lo = (x.Mid << (64 - n)) | (x.Lo >> n)
+	case n < 128:
+		s := n - 64
+		out.Mid = x.Hi >> s
+		out.Lo = (x.Hi << (64 - s)) | (x.Mid >> s)
+	default:
+		s := n - 128
+		out.Lo = x.Hi >> s
+	}
+	return out
+}
+
+// Assuming x non-zero
+func twoAdicVal192(x uint192) int {
+	if x.Lo != 0 {
+		return bits.TrailingZeros64(x.Lo)
+	} else if x.Mid != 0 {
+		return bits.TrailingZeros64(x.Mid) + 64
+	} else {
+		return bits.TrailingZeros64(x.Hi) + 128
+	}
+}
+
+// Assuming x non-zero
+func LeadingZeros192(x uint192) int {
+	if x.Hi != 0 {
+		return bits.LeadingZeros64(x.Hi)
+	} else if x.Mid != 0 {
+		return bits.LeadingZeros64(x.Mid) + 64
+	} else {
+		return bits.LeadingZeros64(x.Lo) + 128
+	}
+}
+
+func isZero192(x uint192) bool {
+	return x.Lo == 0 && x.Mid == 0 && x.Hi == 0
+}
+
+// this is just add, then reduce modulo n once
+func montAddReduce(a, b, n uint192) uint192 {
+	s := add192(a, b)
+	if cmp192(s, n) >= 0 {
+		s = sub192(s, n)
+	}
+	return s
+}
+
+func bit192(x uint192, i int) uint64 {
+	switch {
+	case i < 64:
+		return (x.Lo >> i) & 1
+	case i < 128:
+		return (x.Mid >> (i - 64)) & 1
+	default:
+		return (x.Hi >> (i - 128)) & 1
+	}
+}
+
+//<- Trust --- Dont Trust ->
+
+// REDC reduces C mod N using Montgomery reduction with β = 2^64, n = 3.
+// C is a 384-bit value stored as [6]uint64 (little-endian: C[0] least significant).
+// N is a 192-bit odd modulus. mu = -N^{-1} mod 2^64.
+func REDC(C *[6]uint64, N uint192, mu uint64) uint192 {
 	for i := 0; i < 3; i++ {
-		// m_i = t_i * npi mod 2^64
-		m, _ := bits.Mul64(t[i], npi)
+		// q = (mu * C[i]) mod 2^64
+		q := mu * C[i]
 
-		if m == 0 {
-			continue
-		}
-
-		// t += m * n << (64*i)
+		// C += q * N * β^i
 		var carry uint64
 
-		// add to limb i
-		lo, hi := bits.Mul64(m, n.Lo)
-		t[i], carry = bits.Add64(t[i], lo, 0)
-		carry += hi
+		// word i: q * N.Lo
+		hi, lo := bits.Mul64(q, N.Lo)
+		C[i], carry = bits.Add64(C[i], lo, 0)
+		carry, _ = bits.Add64(hi, 0, carry)
 
-		// limb i+1
-		lo, hi = bits.Mul64(m, n.Mid)
-		t[i+1], carry = bits.Add64(t[i+1], lo, carry)
-		carry += hi
+		// word i+1: q * N.Mid
+		hi, lo = bits.Mul64(q, N.Mid)
+		C[i+1], carry = bits.Add64(C[i+1], lo, carry)
+		carry, _ = bits.Add64(hi, 0, carry)
 
-		// limb i+2
-		lo, hi = bits.Mul64(m, n.Hi)
-		t[i+2], carry = bits.Add64(t[i+2], lo, carry)
-		carry += hi
+		// word i+2: q * N.Hi
+		hi, lo = bits.Mul64(q, N.Hi)
+		C[i+2], carry = bits.Add64(C[i+2], lo, carry)
+		carry, _ = bits.Add64(hi, 0, carry)
 
-		// propagate carry into higher limbs
+		// propagate carry upward
 		j := i + 3
 		for carry != 0 && j < 6 {
-			t[j], carry = bits.Add64(t[j], 0, carry)
+			C[j], carry = bits.Add64(C[j], 0, carry)
 			j++
 		}
 	}
 
-	// Step 3: u = t / R = t >> 192 = t[3..5]
-	u := uint192{
-		Lo:  t[3],
-		Mid: t[4],
-		Hi:  t[5],
+	// R = C >> (64*3) = top 3 words
+	R := uint192{
+		Lo:  C[3],
+		Mid: C[4],
+		Hi:  C[5],
 	}
 
-	// Step 4: conditional subtraction
-	if cmp192(u, n) >= 0 {
-		u = sub192(u, n)
+	// Final conditional subtraction: if R >= N, subtract N
+	if cmp192(R, N) >= 0 {
+		R = sub192(R, N)
 	}
-	return u
+
+	return R
 }
 
-/* Still half-baked
-// assumes N > 1 is odd
-func is_prp(N uint192) int {
-	n := uint64(N); 		//convert input to unsigned 64-bit int
-	if N != n return 1; 	// declare everything >= 2^64 to be probably prime
-	q := n>>1; // since N odd, this right bit-shift is q = (N-1)/2
-	k := __builtin_ctzl(q); //int, k = 2-adic valuation of q
-	q <<= __builtin_clzl(q); // shift q left by number of leading zeros in q
-	nbar := inv192(n); // inverse modulo 2**192 of n
-	one := mont_one(n); // 2**192 modulo n
-	minusone := n-one; // mont -1
-	uint64_t x = addmod64(one,one,n);
-	for (q<<=1;q;q<<=1) {
-		x = mulredc64(x,x,n,nbar);
-		if ((int64_t)q < 0) x = addmod64(x,x,n);
-	}
-	if (x == one || x == minusone) return 1;
-	while (--k >= 0) {
-		x = mulredc64(x,x,n,nbar);
-		if (x == minusone) return 1;
-	}
-	return 0;
+func montMul192(a, b, N uint192, mu uint64) uint192 {
+	C := mul192(a, b)
+	return REDC(&C, N, mu)
 }
-*/
+
+func inv64(x uint64) uint64 {
+	y := x
+	// Newton iteration: y_{k+1} = y_k * (2 - x*y_k) mod 2^64
+	y *= 2 - x*y
+	y *= 2 - x*y
+	y *= 2 - x*y
+	y *= 2 - x*y
+	y *= 2 - x*y
+	y *= 2 - x*y
+	return y
+}
+
+func strongPRP(N uint192) bool {
+	d := rSH192(N, 1) //since N odd, this gives (N-1)/2
+	s := twoAdicVal192(d)
+	d = rSH192(d, s) // odd part of N-1
+	s += 1           // gain another factor from first rshift, now N-1 = 2^s*d, with d odd
+
+	/*
+		Idea: Compute the Montgomery forms we need, choose R = 2^192 to make sure we always have R> N
+		R is chosen as a power of 2 since it is easy to do division
+		Precompute R mod N = mont(1) and mont(-1) = -R modulo N so we can check prime conditions easily without needing to convert back to regular nrs
+		Precompute R^{-1} since we want to do (aR mod N)(bR mod N)R^{-1} = (ab)R mod N
+		(this is what REDC is doing, we input R=2^192, N our modulus, T = aR * bR and get out abR modulo N = (ab))
+
+	*/
+
+	//compute 2^d modulo N, base case
+
+	//check if base case x is 1 or -1 modulo N, if so its likely prime
+
+	//for each x_i = x^(2^i) for 0<i<s check if x_i = -1 modulo. If so, its likely prime
+
+	//if none of these work, then N is composite for sure
+
+	return true
+}
