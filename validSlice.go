@@ -17,6 +17,7 @@ func validExponentSet(indexes, exponents, allValues []int) (*big.Int, bool) {
 	return prod, prod.ProbablyPrime(32)
 }
 
+/* Depricated
 // assuming indexes
 func expSetStrongPRP2(indexes, exponents, primeList []int) (*big.Int, bool) {
 
@@ -60,3 +61,5 @@ func expSetStrongPRP2u192(indexes, exponents, primeList []int) (*Int, bool) {
 	return montStrongPRP2u192(s, d, N)
 
 }
+
+*/

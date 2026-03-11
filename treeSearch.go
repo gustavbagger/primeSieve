@@ -15,7 +15,7 @@ func treeSearch(
 	if currentLog > optSieveBound {
 		return
 	}
-	_, valid := expSetStrongPRP2(indexes, exponents, allValues)
+	_, valid := validExponentSet(indexes, exponents, allValues)
 	if valid {
 		count++
 		fmt.Println("--------------------------------------------")

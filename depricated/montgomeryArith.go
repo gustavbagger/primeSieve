@@ -1,4 +1,4 @@
-package main
+package depricated
 
 import (
 	"math/big"

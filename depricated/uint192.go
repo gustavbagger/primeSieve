@@ -4,7 +4,7 @@
 
 // Package math provides integer math utilities.
 
-package main
+package depricated
 
 import (
 	"math/bits"
