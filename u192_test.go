@@ -170,7 +170,6 @@ func TestAdd192(t *testing.T) {
 	}
 }
 
-// Check all want cases!
 func TestMul192(t *testing.T) {
 	tests := []struct {
 		name string
@@ -284,46 +283,173 @@ func TestNeg192(t *testing.T) {
 	}
 }
 
-func TestMulMod192(t *testing.T) {
+func TestLHS192(t *testing.T) {
 	tests := []struct {
 		name string
-		a, b uint192
+		x    uint192
+		s    int
 		want uint192
 	}{
 		{
-			name: "zero",
-			a:    uint192{Lo: 0, Mid: 0, Hi: 0},
-			b:    uint192{Lo: 0, Mid: 0, Hi: 0},
-			want: uint192{Lo: 0, Mid: 0, Hi: 0},
+			name: "simple Lo shift",
+			x:    uint192{Lo: 1, Mid: 0, Hi: 0},
+			s:    10,
+			want: uint192{Lo: 1 << 10, Mid: 0, Hi: 0},
 		},
 		{
-			name: "small product fits in 192 bits",
-			a:    uint192{Lo: 3, Mid: 0, Hi: 0},
-			b:    uint192{Lo: 7, Mid: 0, Hi: 0},
-			want: uint192{Lo: 21, Mid: 0, Hi: 0},
+			name: "Lo shift, carry",
+			x:    uint192{Lo: 1, Mid: 0, Hi: 0},
+			s:    70,
+			want: uint192{Lo: 0, Mid: 1 << 6, Hi: 0},
 		},
 		{
-			name: "mixed limbs",
-			a:    uint192{Lo: 3, Mid: 2, Hi: 1},
-			b:    uint192{Lo: 6, Mid: 5, Hi: 4},
-			// want computed via mul192 oracle
+			name: "simple Mid shift",
+			x:    uint192{Lo: 0, Mid: 1, Hi: 0},
+			s:    30,
+			want: uint192{Lo: 0, Mid: 1 << 30, Hi: 0},
+		},
+		{
+			name: "overshifting Hi",
+			x:    uint192{Lo: 0, Mid: 0, Hi: 1<<50 + 1<<30},
+			s:    25,
+			want: uint192{Lo: 0, Mid: 0, Hi: 1 << 55},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
-			// compute expected via mul192 oracle
-			want := tt.want
-			if tt.name == "mixed limbs" {
-				full := mul192(tt.a, tt.b)
-				want = uint192{Lo: full[0], Mid: full[1], Hi: full[2]}
+			got := lSH192(tt.x, tt.s)
+			if cmp192(got, tt.want) != 0 {
+				t.Fatalf("lSH192(%v, %v) = %d, want %d", tt.x, tt.s, got, tt.want)
 			}
+		})
+	}
+}
 
-			got := mulMod192(tt.a, tt.b)
+func TestRHS192(t *testing.T) {
+	tests := []struct {
+		name string
+		x    uint192
+		s    int
+		want uint192
+	}{
+		{
+			name: "simple Lo shift",
+			x:    uint192{Lo: 1, Mid: 0, Hi: 0},
+			s:    5,
+			want: uint192{Lo: 0, Mid: 0, Hi: 0},
+		},
+		{
+			name: "Mid shift",
+			x:    uint192{Lo: 0, Mid: 1 << 20, Hi: 0},
+			s:    14,
+			want: uint192{Lo: 0, Mid: 1 << 6, Hi: 0},
+		},
+		{
+			name: "Mid shift, carry",
+			x:    uint192{Lo: 0, Mid: 1 << 20, Hi: 0},
+			s:    24,
+			want: uint192{Lo: 1 << 60, Mid: 0, Hi: 0},
+		},
+		{
+			name: "multi-word shift",
+			x:    uint192{Lo: 0, Mid: 1 << 2, Hi: 1<<50 + 1<<20},
+			s:    25,
+			want: uint192{Lo: 1 << 41, Mid: 1 << 59, Hi: 1 << 25},
+		},
+	}
 
-			if cmp192(got, want) != 0 {
-				t.Fatalf("mulMod192(%v, %v) = %v, want %v", tt.a, tt.b, got, want)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := rSH192(tt.x, tt.s)
+			if cmp192(got, tt.want) != 0 {
+				t.Fatalf("rSH192(%v, %v) = %d, want %d", tt.x, tt.s, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTwoAdicVal192(t *testing.T) {
+	tests := []struct {
+		name string
+		x    uint192
+		want int
+	}{
+		{
+			name: "one",
+			x:    uint192{Lo: 1, Mid: 0, Hi: 0},
+			want: 0,
+		},
+		{
+			name: "simple Lo setup",
+			x:    uint192{Lo: 1 << 5, Mid: 0, Hi: 0},
+			want: 5,
+		},
+		{
+			name: "simple Lo setup, mixed",
+			x:    uint192{Lo: 1<<4 + 1<<10, Mid: 0, Hi: 0},
+			want: 4,
+		},
+		{
+			name: "simple Mid setup",
+			x:    uint192{Lo: 0, Mid: 1 << 10, Hi: 0},
+			want: 74,
+		},
+		{
+			name: "simple Hi setup",
+			x:    uint192{Lo: 0, Mid: 0, Hi: 1 << 6},
+			want: 134,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := twoAdicVal192(tt.x)
+			if got != tt.want {
+				t.Fatalf("twoAdicVal192(%v) = %d, want %d", tt.x, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLeadingZeros192(t *testing.T) {
+	tests := []struct {
+		name string
+		x    uint192
+		want int
+	}{
+		{
+			name: "zero",
+			x:    uint192{Lo: 0, Mid: 0, Hi: 0},
+			want: 192,
+		},
+		{
+			name: "simple Lo setup",
+			x:    uint192{Lo: 1 << 5, Mid: 0, Hi: 0},
+			want: 186,
+		},
+		{
+			name: "simple Lo setup, mixed",
+			x:    uint192{Lo: 1<<4 + 1<<10, Mid: 0, Hi: 0},
+			want: 181,
+		},
+		{
+			name: "simple Mid setup",
+			x:    uint192{Lo: 0, Mid: 1 << 10, Hi: 0},
+			want: 117,
+		},
+		{
+			name: "maxed out",
+			x:    uint192{Lo: 0, Mid: 0, Hi: (1 << 64) - 1},
+			want: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := LeadingZeros192(tt.x)
+			if got != tt.want {
+				t.Fatalf("LeadingZeros192(%v) = %d, want %d", tt.x, got, tt.want)
 			}
 		})
 	}

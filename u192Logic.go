@@ -207,7 +207,7 @@ func montMul192(a, b, N uint192, mu uint64) (uint192, error) {
 	return REDC(mul192(a, b), N, mu)
 }
 
-// this is just add, then reduce modulo n once
+// this is just add, then reduce modulo n once. Assumes a,b<n
 func montAddReduce(a, b, n uint192) (uint192, error) {
 	s := add192(a, b)
 	var err error
