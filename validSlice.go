@@ -1,6 +1,9 @@
 package main
 
-import "math/big"
+import (
+	"log"
+	"math/big"
+)
 
 func validExponentSet(indexes, exponents, allValues []int) (*big.Int, bool) {
 	prod := big.NewInt(1)
@@ -15,6 +18,21 @@ func validExponentSet(indexes, exponents, allValues []int) (*big.Int, bool) {
 	}
 	prod.Add(prod, big.NewInt(1))
 	return prod, prod.ProbablyPrime(32)
+}
+
+func validExponentSet192(indexes, exponents, allValues []int) (uint192, bool) {
+	prod := uint192{Lo: 1}
+	for i, index := range indexes {
+		for exp := 1; exp <= exponents[i]; exp++ {
+			prod = mulMod192(prod, uint192{Lo: uint64(allValues[index])})
+		}
+	}
+	prod = add192(prod, uint192{Lo: 1})
+	prp, err := strongPRP(prod)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return prod, prp
 }
 
 /* Depricated

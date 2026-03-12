@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"math/bits"
 )
 
@@ -35,13 +36,17 @@ func cmp192(a, b uint192) int {
 	return 0
 }
 
-func sub192(a, b uint192) uint192 {
+func sub192(a, b uint192) (uint192, error) {
 	lo, carry := bits.Sub64(a.Lo, b.Lo, 0)
 	mid, carry := bits.Sub64(a.Mid, b.Mid, carry)
-	hi, _ := bits.Sub64(a.Hi, b.Hi, carry)
-	return uint192{Lo: lo, Mid: mid, Hi: hi}
+	hi, carry := bits.Sub64(a.Hi, b.Hi, carry)
+	if carry != 0 {
+		return uint192{}, errors.New("a<b")
+	}
+	return uint192{Lo: lo, Mid: mid, Hi: hi}, nil
 }
 
+// no need to worry about carry here: a,b are always chosen to be <N and 2N < 2^192
 func add192(a, b uint192) uint192 {
 	var out uint192
 	var carry uint64
@@ -51,8 +56,8 @@ func add192(a, b uint192) uint192 {
 	return out
 }
 
-func mul192(a, b uint192) [6]uint64 {
-	var t [6]uint64
+func mul192(a, b uint192) [7]uint64 {
+	var t [7]uint64
 
 	// helper to add a 128-bit value (hi:lo) into t[k..]
 	add128 := func(k int, hi, lo uint64) {
@@ -103,6 +108,30 @@ func mul192(a, b uint192) [6]uint64 {
 	add128(4, hi, lo)
 
 	return t
+}
+
+func neg192(x uint192) uint192 {
+	var z uint192
+	carry := uint64(1)
+
+	// z = (~x + 1)  (two's complement)
+	z.Lo = ^x.Lo + carry
+	carry = 0
+	if z.Lo == 0 {
+		carry = 1
+	}
+
+	z.Mid = ^x.Mid + carry
+	carry = 0
+	if z.Mid == 0 && carry == 1 {
+		carry = 1
+	} else {
+		carry = 0
+	}
+
+	z.Hi = ^x.Hi + carry
+
+	return z
 }
 
 func mulMod192(a, b uint192) uint192 {
@@ -174,13 +203,21 @@ func isZero192(x uint192) bool {
 	return x.Lo == 0 && x.Mid == 0 && x.Hi == 0
 }
 
+func montMul192(a, b, N uint192, mu uint64) (uint192, error) {
+	return REDC(mul192(a, b), N, mu)
+}
+
 // this is just add, then reduce modulo n once
-func montAddReduce(a, b, n uint192) uint192 {
+func montAddReduce(a, b, n uint192) (uint192, error) {
 	s := add192(a, b)
+	var err error
 	if cmp192(s, n) >= 0 {
-		s = sub192(s, n)
+		s, err = sub192(s, n)
+		if err != nil {
+			return uint192{}, err
+		}
 	}
-	return s
+	return s, nil
 }
 
 func bit192(x uint192, i int) uint64 {
@@ -194,96 +231,194 @@ func bit192(x uint192, i int) uint64 {
 	}
 }
 
+var two = uint192{Lo: 2}
+
+// newtons method (hensel lifting)
+func inv192(N uint192) (uint192, error) {
+	x := uint192{Lo: 1} //seed
+
+	for i := 0; i < 8; i++ {
+		s, err := sub192(two, mulMod192(N, x))
+		if err != nil {
+			return uint192{}, err
+		}
+		x = mulMod192(x, s)
+	}
+	return x, nil
+}
+
+// inv64 computes N^{-1} mod 2^64 using Newton iteration.
+// Requires N to be odd.
+func inv64(N uint64) uint64 {
+	// Seed: inverse mod 2 (i.e., 1)
+	x := uint64(1)
+
+	// Each iteration doubles the number of correct bits.
+	for i := 0; i < 6; i++ {
+		// x = x * (2 - N*x) mod 2^64
+		x = x * (2 - N*x)
+	}
+
+	return x
+}
+
+func addMod192(a, b, N uint192) (uint192, error) {
+	var out uint192
+	var carry uint64
+	var err error
+
+	// Add Lo limbs
+	out.Lo, carry = bits.Add64(a.Lo, b.Lo, 0)
+
+	// Add Mid limbs + carry
+	out.Mid, carry = bits.Add64(a.Mid, b.Mid, carry)
+
+	// Add Hi limbs + carry
+	out.Hi, _ = bits.Add64(a.Hi, b.Hi, carry)
+
+	// If result >= N, subtract N
+	if cmp192(out, N) >= 0 {
+		out, err = sub192(out, N)
+		if err != nil {
+			return uint192{}, err
+		}
+	}
+
+	return out, nil
+}
+
+func montOne(N uint192) (uint192, error) {
+	x := uint192{Lo: 1}
+	var err error
+
+	for i := 0; i < 192; i++ {
+		x, err = addMod192(x, x, N)
+		if err != nil {
+			return uint192{}, err
+		}
+	}
+	return x, nil
+}
+
+// Consider using the known value of s since N is computed via the exponent set
+func strongPRP(N uint192) (bool, error) {
+	d := rSH192(N, 1)                 //since N odd, this gives (N-1)/2
+	s := twoAdicVal192(d)             // this is the 2-adic valuation of (N-1)/2
+	d = lSH192(d, LeadingZeros192(d)) // odd part of N-1 shifted up to the MSB
+
+	nbar := -inv64(N.Lo)       //Pre-compute -N^{-1} modulo 2^192 for REDC
+	montOne, err := montOne(N) //Pre-compute 1R modulo N for primality checks
+	if err != nil {
+		return false, err
+	}
+	montNegOne, err := sub192(N, montOne) //Pre-compute -1R modulo N for primality checks
+	if err != nil {
+		return false, err
+	}
+
+	x, err := montAddReduce(montOne, montOne, N) //Initialise x = 2R mod N
+	if err != nil {
+		return false, err
+	}
+	//compute 2^d modulo N by MSB->LSB exponentiation
+	for d = lSH192(d, 1); !isZero192(d); d = lSH192(d, 1) {
+		x, err = montMul192(x, x, N, nbar)
+		if err != nil {
+			return false, err
+		}
+		if (d.Hi & (1 << 63)) != 0 { //This is checking if the MSB is 1, if so d.Hi is interpreted as negative as a uint192
+			x, err = montAddReduce(x, x, N)
+			if err != nil {
+				return false, err
+			}
+		}
+	}
+
+	//check if 2^d is +-1 modulo N, if so, N is prop prime
+	if cmp192(x, montOne) == 0 || cmp192(x, montNegOne) == 0 {
+		return true, nil
+	}
+
+	// for each x_i = x^(d * 2^i) for 0<i<s check if x_i = -1 modulo. If so, its likely prime
+	for s--; s >= 0; s-- {
+		x, err = montMul192(x, x, N, nbar)
+		if err != nil {
+			return false, err
+		}
+		if cmp192(x, montNegOne) == 0 {
+			return true, nil
+		}
+	}
+	return false, nil
+
+	/*
+			Idea: Compute the Montgomery forms we need, choose R = 2^192 to make sure we always have R> N
+			R is chosen as a power of 2 since it is easy to do division
+
+		Precompute R mod N = mont(1) and mont(-1) = -R modulo N
+			so we can check prime conditions easily without needing to convert back to regular nrs
+
+		compute 2^d modulo N, base case
+			do this by repeated squaring in montgomery form
+
+
+		- check if base case x is 1 or -1 modulo N, if so its likely prime
+
+		- for each x_i = x^(2^i) for 0<i<s check if x_i = -1 modulo. If so, its likely prime
+
+		- if none of these work, then N is composite for sure
+	*/
+}
+
 //<- Trust --- Dont Trust ->
 
 // REDC reduces C mod N using Montgomery reduction with β = 2^64, n = 3.
 // C is a 384-bit value stored as [6]uint64 (little-endian: C[0] least significant).
-// N is a 192-bit odd modulus. mu = -N^{-1} mod 2^64.
-func REDC(C *[6]uint64, N uint192, mu uint64) uint192 {
+// N is a 192-bit odd modulus. mu = -N^{-1} mod 2^192.
+func REDC(C [7]uint64, Nuint uint192, mu uint64) (uint192, error) {
+	var err error
+	N := [3]uint64{Nuint.Lo, Nuint.Mid, Nuint.Hi}
+	// Step 1: main loop
 	for i := 0; i < 3; i++ {
-		// q = (mu * C[i]) mod 2^64
-		q := mu * C[i]
+		ci := C[i]
+		qi := ci * mu // automatically mod 2^64
 
-		// C += q * N * β^i
+		// Add qi * N shifted by i limbs
 		var carry uint64
+		var hi uint64
 
-		// word i: q * N.Lo
-		hi, lo := bits.Mul64(q, N.Lo)
-		C[i], carry = bits.Add64(C[i], lo, 0)
-		carry, _ = bits.Add64(hi, 0, carry)
+		// j runs over limbs of N
+		for j := 0; j < 3; j++ {
+			// Multiply qi * N[j]
+			lo, hiMul := bits.Mul64(qi, N[j])
 
-		// word i+1: q * N.Mid
-		hi, lo = bits.Mul64(q, N.Mid)
-		C[i+1], carry = bits.Add64(C[i+1], lo, carry)
-		carry, _ = bits.Add64(hi, 0, carry)
+			// Add into C[i+j] with carry
+			lo, c1 := bits.Add64(lo, C[i+j], 0)
+			lo, c2 := bits.Add64(lo, carry, 0)
 
-		// word i+2: q * N.Hi
-		hi, lo = bits.Mul64(q, N.Hi)
-		C[i+2], carry = bits.Add64(C[i+2], lo, carry)
-		carry, _ = bits.Add64(hi, 0, carry)
+			C[i+j] = lo
+			carry = hiMul + c1 + c2
+		}
 
-		// propagate carry upward
-		j := i + 3
-		for carry != 0 && j < 6 {
-			C[j], carry = bits.Add64(C[j], 0, carry)
-			j++
+		// Propagate carry into higher limbs
+		k := i + 3
+		for carry != 0 {
+			C[k], hi = bits.Add64(C[k], carry, 0)
+			carry = hi
+			k++
 		}
 	}
 
-	// R = C >> (64*3) = top 3 words
-	R := uint192{
-		Lo:  C[3],
-		Mid: C[4],
-		Hi:  C[5],
+	// Step 2: R = C >> 192 bits (drop first 3 limbs)
+	R := uint192{Lo: C[3], Mid: C[4], Hi: C[5]}
+
+	// Step 3: final conditional subtraction
+	if cmp192(R, Nuint) >= 0 {
+		R, err = sub192(R, Nuint)
+		if err != nil {
+			return uint192{}, err
+		}
 	}
 
-	// Final conditional subtraction: if R >= N, subtract N
-	if cmp192(R, N) >= 0 {
-		R = sub192(R, N)
-	}
-
-	return R
-}
-
-func montMul192(a, b, N uint192, mu uint64) uint192 {
-	C := mul192(a, b)
-	return REDC(&C, N, mu)
-}
-
-func inv64(x uint64) uint64 {
-	y := x
-	// Newton iteration: y_{k+1} = y_k * (2 - x*y_k) mod 2^64
-	y *= 2 - x*y
-	y *= 2 - x*y
-	y *= 2 - x*y
-	y *= 2 - x*y
-	y *= 2 - x*y
-	y *= 2 - x*y
-	return y
-}
-
-func strongPRP(N uint192) bool {
-	d := rSH192(N, 1) //since N odd, this gives (N-1)/2
-	s := twoAdicVal192(d)
-	d = rSH192(d, s) // odd part of N-1
-	s += 1           // gain another factor from first rshift, now N-1 = 2^s*d, with d odd
-
-	/*
-		Idea: Compute the Montgomery forms we need, choose R = 2^192 to make sure we always have R> N
-		R is chosen as a power of 2 since it is easy to do division
-		Precompute R mod N = mont(1) and mont(-1) = -R modulo N so we can check prime conditions easily without needing to convert back to regular nrs
-		Precompute R^{-1} since we want to do (aR mod N)(bR mod N)R^{-1} = (ab)R mod N
-		(this is what REDC is doing, we input R=2^192, N our modulus, T = aR * bR and get out abR modulo N = (ab))
-
-	*/
-
-	//compute 2^d modulo N, base case
-
-	//check if base case x is 1 or -1 modulo N, if so its likely prime
-
-	//for each x_i = x^(2^i) for 0<i<s check if x_i = -1 modulo. If so, its likely prime
-
-	//if none of these work, then N is composite for sure
-
-	return true
+	return R, nil
 }

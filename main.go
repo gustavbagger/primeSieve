@@ -1,31 +1,5 @@
 package main
 
-var testVals = []uint192{
-	// small primes
-	{Lo: 3, Mid: 0, Hi: 0},
-	{Lo: 5, Mid: 0, Hi: 0},
-	{Lo: 17, Mid: 0, Hi: 0},
-	{Lo: 97, Mid: 0, Hi: 0},
-	{Lo: 65537, Mid: 0, Hi: 0},
-
-	// small composites
-	{Lo: 4, Mid: 0, Hi: 0},   // 2^2
-	{Lo: 9, Mid: 0, Hi: 0},   // 3^2
-	{Lo: 21, Mid: 0, Hi: 0},  // 3 * 7
-	{Lo: 221, Mid: 0, Hi: 0}, // 13 * 17
-	{Lo: 341, Mid: 0, Hi: 0}, // 11 * 31 (also a Fermat pseudoprime to base 2)
-}
-
-func main() {
-	for _, val := range testVals {
-		testPRP(val)
-	}
-	testMulRedc(uint192{Lo: 9})
-	testMulRedc(uint192{Lo: 21})
-	testMulRedc(uint192{Lo: 221})
-}
-
-/*
 import (
 	"fmt"
 	"os"
@@ -76,4 +50,3 @@ func main() {
 	end := time.Now()
 	fmt.Println("Time elapsed: ", end.Sub(start))
 }
-*/
