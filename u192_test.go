@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math/big"
 	"testing"
 )
 
@@ -561,23 +562,47 @@ func TestInv64(t *testing.T) {
 	}
 }
 
-// worried here about montAddReduce assuming a,b<N in montOne
+// Cannot max out N since we assume no carry in add192, coming from 2N<<2^192 (N at most ~10^56)
 func TestMontOne(t *testing.T) {
 	tests := []struct {
 		name string
 		N    uint192
 	}{
 		{
-			name: "one",
-			N:    uint192{Lo: 1, Mid: 0, Hi: 0},
+			name: "Mixed",
+			N:    uint192{Lo: 1, Mid: 1 << 15, Hi: 0},
 		},
+		{
+			name: "Lo",
+			N:    uint192{Lo: 3<<5 + 1, Mid: 0, Hi: 0},
+		},
+		{
+			name: "Big Boi",
+			N:    uint192{Lo: 1<<64 - 1, Mid: 1<<64 - 1, Hi: 1<<58 - 1},
+		},
+	}
+
+	cmpMont := func(get, N uint192) (bool, *big.Int, *big.Int) {
+		a := big.NewInt(1)
+		a.Lsh(a, 192)
+
+		NBig := big.NewInt(1)
+		NBig.Lsh(NBig.SetUint64(N.Hi), 128)
+		NBig.Add(NBig, big.NewInt(1).Lsh(big.NewInt(1).SetUint64(N.Mid), 64))
+		NBig.Add(NBig, big.NewInt(1).SetUint64(N.Lo))
+
+		GetBig := big.NewInt(1)
+		GetBig.Lsh(GetBig.SetUint64(get.Hi), 128)
+		GetBig.Add(GetBig, big.NewInt(1).Lsh(big.NewInt(1).SetUint64(get.Mid), 64))
+		GetBig.Add(GetBig, big.NewInt(1).SetUint64(get.Lo))
+
+		out := big.NewInt(1).Mod(a, NBig)
+		return out.Cmp(GetBig) == 0, GetBig, out
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := inv192(tt.N)
-			want := montAddReduce(uint192{1<<64 - 1, 1<<64 - 1, 1<<64 - 1}, uint192{Lo: 1}, tt.N)
-			if cmp192(want, got) != 0 {
+			if b, got, want := cmpMont(montOne(tt.N), tt.N); !b {
 				t.Fatalf("montOne(%v) = %d, but expected %v", tt.N, got, want)
 			}
 		})

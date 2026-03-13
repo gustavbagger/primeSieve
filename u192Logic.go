@@ -254,7 +254,6 @@ func inv64(N uint64) uint64 {
 
 func montOne(N uint192) uint192 {
 	x := uint192{Lo: 1}
-
 	for i := 0; i < 192; i++ {
 		x = montAddReduce(x, x, N)
 	}
