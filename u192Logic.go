@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"math/bits"
 )
 
@@ -36,14 +35,12 @@ func cmp192(a, b uint192) int {
 	return 0
 }
 
-func sub192(a, b uint192) (uint192, error) {
+// care, this is modulo 2^192
+func sub192(a, b uint192) uint192 {
 	lo, carry := bits.Sub64(a.Lo, b.Lo, 0)
 	mid, carry := bits.Sub64(a.Mid, b.Mid, carry)
 	hi, carry := bits.Sub64(a.Hi, b.Hi, carry)
-	if carry != 0 {
-		return uint192{}, errors.New("a<b")
-	}
-	return uint192{Lo: lo, Mid: mid, Hi: hi}, nil
+	return uint192{Lo: lo, Mid: mid, Hi: hi}
 }
 
 // no need to worry about carry here: a,b are always chosen to be <N and 2N < 2^192
@@ -203,21 +200,18 @@ func isZero192(x uint192) bool {
 	return x.Lo == 0 && x.Mid == 0 && x.Hi == 0
 }
 
-func montMul192(a, b, N uint192, mu uint64) (uint192, error) {
+func montMul192(a, b, N uint192, mu uint64) uint192 {
 	return REDC(mul192(a, b), N, mu)
 }
 
+// shouldn't error
 // this is just add, then reduce modulo n once. Assumes a,b<n
-func montAddReduce(a, b, n uint192) (uint192, error) {
+func montAddReduce(a, b, n uint192) uint192 {
 	s := add192(a, b)
-	var err error
 	if cmp192(s, n) >= 0 {
-		s, err = sub192(s, n)
-		if err != nil {
-			return uint192{}, err
-		}
+		s = sub192(s, n)
 	}
-	return s, nil
+	return s
 }
 
 func bit192(x uint192, i int) uint64 {
@@ -234,17 +228,13 @@ func bit192(x uint192, i int) uint64 {
 var two = uint192{Lo: 2}
 
 // newtons method (hensel lifting)
-func inv192(N uint192) (uint192, error) {
+func inv192(N uint192) uint192 {
 	x := uint192{Lo: 1} //seed
 
 	for i := 0; i < 8; i++ {
-		s, err := sub192(two, mulMod192(N, x))
-		if err != nil {
-			return uint192{}, err
-		}
-		x = mulMod192(x, s)
+		x = mulMod192(x, sub192(two, mulMod192(N, x)))
 	}
-	return x, nil
+	return x
 }
 
 // inv64 computes N^{-1} mod 2^64 using Newton iteration.
@@ -262,94 +252,48 @@ func inv64(N uint64) uint64 {
 	return x
 }
 
-func addMod192(a, b, N uint192) (uint192, error) {
-	var out uint192
-	var carry uint64
-	var err error
-
-	// Add Lo limbs
-	out.Lo, carry = bits.Add64(a.Lo, b.Lo, 0)
-
-	// Add Mid limbs + carry
-	out.Mid, carry = bits.Add64(a.Mid, b.Mid, carry)
-
-	// Add Hi limbs + carry
-	out.Hi, _ = bits.Add64(a.Hi, b.Hi, carry)
-
-	// If result >= N, subtract N
-	if cmp192(out, N) >= 0 {
-		out, err = sub192(out, N)
-		if err != nil {
-			return uint192{}, err
-		}
-	}
-
-	return out, nil
-}
-
-func montOne(N uint192) (uint192, error) {
+func montOne(N uint192) uint192 {
 	x := uint192{Lo: 1}
-	var err error
 
 	for i := 0; i < 192; i++ {
-		x, err = addMod192(x, x, N)
-		if err != nil {
-			return uint192{}, err
-		}
+		x = montAddReduce(x, x, N)
 	}
-	return x, nil
+	return x
 }
 
 // Consider using the known value of s since N is computed via the exponent set
-func strongPRP(N uint192) (bool, error) {
+func strongPRP(N uint192) bool {
 	d := rSH192(N, 1)                 //since N odd, this gives (N-1)/2
 	s := twoAdicVal192(d)             // this is the 2-adic valuation of (N-1)/2
 	d = lSH192(d, LeadingZeros192(d)) // odd part of N-1 shifted up to the MSB
 
-	nbar := -inv64(N.Lo)       //Pre-compute -N^{-1} modulo 2^192 for REDC
-	montOne, err := montOne(N) //Pre-compute 1R modulo N for primality checks
-	if err != nil {
-		return false, err
-	}
-	montNegOne, err := sub192(N, montOne) //Pre-compute -1R modulo N for primality checks
-	if err != nil {
-		return false, err
-	}
+	nbar := -inv64(N.Lo)             //Pre-compute -N^{-1} modulo 2^192 for REDC
+	montOne := montOne(N)            //Pre-compute 1R modulo N for primality checks
+	montNegOne := sub192(N, montOne) //Pre-compute -1R modulo N for primality checks
 
-	x, err := montAddReduce(montOne, montOne, N) //Initialise x = 2R mod N
-	if err != nil {
-		return false, err
-	}
+	x := montAddReduce(montOne, montOne, N) //Initialise x = 2R mod N
+
 	//compute 2^d modulo N by MSB->LSB exponentiation
 	for d = lSH192(d, 1); !isZero192(d); d = lSH192(d, 1) {
-		x, err = montMul192(x, x, N, nbar)
-		if err != nil {
-			return false, err
-		}
+		x = montMul192(x, x, N, nbar)
 		if (d.Hi & (1 << 63)) != 0 { //This is checking if the MSB is 1, if so d.Hi is interpreted as negative as a uint192
-			x, err = montAddReduce(x, x, N)
-			if err != nil {
-				return false, err
-			}
+			x = montAddReduce(x, x, N)
 		}
 	}
 
 	//check if 2^d is +-1 modulo N, if so, N is prop prime
 	if cmp192(x, montOne) == 0 || cmp192(x, montNegOne) == 0 {
-		return true, nil
+		return true
 	}
 
 	// for each x_i = x^(d * 2^i) for 0<i<s check if x_i = -1 modulo. If so, its likely prime
 	for s--; s >= 0; s-- {
-		x, err = montMul192(x, x, N, nbar)
-		if err != nil {
-			return false, err
-		}
+		x = montMul192(x, x, N, nbar)
 		if cmp192(x, montNegOne) == 0 {
-			return true, nil
+			return true
 		}
 	}
-	return false, nil
+	return false
 
 	/*
 			Idea: Compute the Montgomery forms we need, choose R = 2^192 to make sure we always have R> N
@@ -375,8 +319,8 @@ func strongPRP(N uint192) (bool, error) {
 // REDC reduces C mod N using Montgomery reduction with β = 2^64, n = 3.
 // C is a 384-bit value stored as [6]uint64 (little-endian: C[0] least significant).
 // N is a 192-bit odd modulus. mu = -N^{-1} mod 2^192.
-func REDC(C [7]uint64, Nuint uint192, mu uint64) (uint192, error) {
-	var err error
+func REDC(C [7]uint64, Nuint uint192, mu uint64) uint192 {
+
 	N := [3]uint64{Nuint.Lo, Nuint.Mid, Nuint.Hi}
 	// Step 1: main loop
 	for i := 0; i < 3; i++ {
@@ -414,11 +358,8 @@ func REDC(C [7]uint64, Nuint uint192, mu uint64) (uint192, error) {
 
 	// Step 3: final conditional subtraction
 	if cmp192(R, Nuint) >= 0 {
-		R, err = sub192(R, Nuint)
-		if err != nil {
-			return uint192{}, err
-		}
+		R = sub192(R, Nuint)
 	}
 
-	return R, nil
+	return R
 }

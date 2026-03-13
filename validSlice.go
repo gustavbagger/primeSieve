@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"math/big"
 )
 
@@ -28,10 +27,7 @@ func validExponentSet192(indexes, exponents, allValues []int) (uint192, bool) {
 		}
 	}
 	prod = add192(prod, uint192{Lo: 1})
-	prp, err := strongPRP(prod)
-	if err != nil {
-		log.Fatal(err)
-	}
+	prp := strongPRP(prod)
 	return prod, prp
 }
 
