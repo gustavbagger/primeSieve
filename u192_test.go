@@ -15,6 +15,28 @@ func checkErr(got, want error) bool {
 	}
 }
 
+func toBig(x uint192) *big.Int {
+	z := big.NewInt(0)
+	z.Lsh(z.SetUint64(x.Hi), 128)
+	z.Add(z, new(big.Int).Lsh(new(big.Int).SetUint64(x.Mid), 64))
+	z.Add(z, new(big.Int).SetUint64(x.Lo))
+	return z
+}
+
+func bigTo7Limbs(x *big.Int) [7]uint64 {
+	var out [7]uint64
+
+	tmp := new(big.Int).Set(x)
+	mask := new(big.Int).SetUint64(^uint64(0)) // 0xffffffffffffffff
+
+	for i := 0; i < 7; i++ {
+		out[i] = new(big.Int).And(tmp, mask).Uint64()
+		tmp.Rsh(tmp, 64)
+	}
+
+	return out
+}
+
 func TestCmp192(t *testing.T) {
 	tests := []struct {
 		name string
@@ -586,15 +608,8 @@ func TestMontOne(t *testing.T) {
 		a := big.NewInt(1)
 		a.Lsh(a, 192)
 
-		NBig := big.NewInt(1)
-		NBig.Lsh(NBig.SetUint64(N.Hi), 128)
-		NBig.Add(NBig, big.NewInt(1).Lsh(big.NewInt(1).SetUint64(N.Mid), 64))
-		NBig.Add(NBig, big.NewInt(1).SetUint64(N.Lo))
-
-		GetBig := big.NewInt(1)
-		GetBig.Lsh(GetBig.SetUint64(get.Hi), 128)
-		GetBig.Add(GetBig, big.NewInt(1).Lsh(big.NewInt(1).SetUint64(get.Mid), 64))
-		GetBig.Add(GetBig, big.NewInt(1).SetUint64(get.Lo))
+		NBig := toBig(N)
+		GetBig := toBig(get)
 
 		out := big.NewInt(1).Mod(a, NBig)
 		return out.Cmp(GetBig) == 0, GetBig, out
@@ -604,6 +619,65 @@ func TestMontOne(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if b, got, want := cmpMont(montOne(tt.N), tt.N); !b {
 				t.Fatalf("montOne(%v) = %d, but expected %v", tt.N, got, want)
+			}
+		})
+	}
+}
+
+func TestREDC(t *testing.T) {
+	tests := []struct {
+		name string
+		N    uint192
+		A    uint192
+		B    uint192
+	}{
+		{
+			name: "Small",
+			N:    uint192{Lo: 97, Mid: 0, Hi: 0},
+			A:    uint192{Lo: 12, Mid: 0, Hi: 0},
+			B:    uint192{Lo: 7, Mid: 0, Hi: 0},
+		},
+		{
+			name: "Medium",
+			N:    uint192{Lo: 1<<32 + 15, Mid: 1<<20 + 3, Hi: 0},
+			A:    uint192{Lo: 123456, Mid: 0, Hi: 0},
+			B:    uint192{Lo: 98765, Mid: 0, Hi: 0},
+		},
+		{
+			name: "Large limbs",
+			N:    uint192{Lo: 1<<63 + 11, Mid: 1<<62 + 7, Hi: 1<<58 + 3},
+			A:    uint192{Lo: 1<<60 + 123, Mid: 1<<40 + 55, Hi: 0},
+			B:    uint192{Lo: 1<<59 + 999, Mid: 1<<39 + 77, Hi: 0},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			Nbig := toBig(tt.N)
+			Abig := toBig(tt.A)
+			Bbig := toBig(tt.B)
+
+			Rbig := toBig(montOne(tt.N))
+
+			ARbig := new(big.Int).Mod(new(big.Int).Mul(Abig, Rbig), Nbig)
+
+			BRbig := new(big.Int).Mod(new(big.Int).Mul(Bbig, Rbig), Nbig)
+
+			CBig := new(big.Int).Mul(ARbig, BRbig)
+			C := bigTo7Limbs(CBig)
+			// mu = inv64(N.Lo)
+			mu := ^inv64(tt.N.Lo) + 1
+
+			// Run REDC
+			got := REDC(C, tt.N, mu)
+
+			// Convert result to big.Int
+			gotBig := toBig(got)
+
+			wantBig := new(big.Int).Mod(new(big.Int).Mul(Bbig, ARbig), Nbig)
+
+			if gotBig.Cmp(wantBig) != 0 {
+				t.Fatalf("REDC mismatch:\n got  %v\n want %v\nA: %v B: %v R: %v, N: %v\n AR: %v, BR: %v", gotBig, wantBig, Abig, Bbig, Rbig, Nbig, ARbig, BRbig)
 			}
 		})
 	}

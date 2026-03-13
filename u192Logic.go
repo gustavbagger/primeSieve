@@ -260,32 +260,19 @@ func montOne(N uint192) uint192 {
 	return x
 }
 
-// Consider using the known value of s since N is computed via the exponent set
-func strongPRP(N uint192) bool {
-	d := rSH192(N, 1)                 //since N odd, this gives (N-1)/2
-	s := twoAdicVal192(d)             // this is the 2-adic valuation of (N-1)/2
-	d = lSH192(d, LeadingZeros192(d)) // odd part of N-1 shifted up to the MSB
-
-	nbar := -inv64(N.Lo)             //Pre-compute -N^{-1} modulo 2^192 for REDC
-	montOne := montOne(N)            //Pre-compute 1R modulo N for primality checks
-	montNegOne := sub192(N, montOne) //Pre-compute -1R modulo N for primality checks
-
-	x := montAddReduce(montOne, montOne, N) //Initialise x = 2R mod N
-
-	//compute 2^d modulo N by MSB->LSB exponentiation
+// compute 2^d modulo N by MSB->LSB exponentiation
+func expTwo_DModN(x, d, N uint192, nbar uint64) uint192 {
 	for d = lSH192(d, 1); !isZero192(d); d = lSH192(d, 1) {
 		x = montMul192(x, x, N, nbar)
 		if (d.Hi & (1 << 63)) != 0 { //This is checking if the MSB is 1, if so d.Hi is interpreted as negative as a uint192
 			x = montAddReduce(x, x, N)
 		}
 	}
+	return x
+}
 
-	//check if 2^d is +-1 modulo N, if so, N is prop prime
-	if cmp192(x, montOne) == 0 || cmp192(x, montNegOne) == 0 {
-		return true
-	}
-
-	// for each x_i = x^(d * 2^i) for 0<i<s check if x_i = -1 modulo. If so, its likely prime
+// for each x_i = x^(d * 2^i) for 0<i<s check if x_i = -1 modulo. If so, its likely prime
+func exp2_iModN(x, montNegOne, N uint192, nbar uint64, s int) bool {
 	for s--; s >= 0; s-- {
 		x = montMul192(x, x, N, nbar)
 		if cmp192(x, montNegOne) == 0 {
@@ -293,6 +280,30 @@ func strongPRP(N uint192) bool {
 		}
 	}
 	return false
+}
+
+// Consider using the known value of s since N is computed via the exponent set
+func strongPRP(N uint192) bool {
+	d := rSH192(N, 1)                 //since N odd, this gives (N-1)/2
+	s := twoAdicVal192(d)             // this is the 2-adic valuation of (N-1)/2
+	d = lSH192(d, LeadingZeros192(d)) // odd part of N-1 shifted up to the MSB
+
+	nbar := -inv64(N.Lo)             //Pre-compute -N^{-1} modulo 2^64 for REDC
+	montOne := montOne(N)            //Pre-compute 1R modulo N for primality checks
+	montNegOne := sub192(N, montOne) //Pre-compute -1R modulo N for primality checks
+
+	x := montAddReduce(montOne, montOne, N) //Initialise x = 2R mod N
+
+	//compute 2^d modulo N by MSB->LSB exponentiation
+	x = expTwo_DModN(x, d, N, nbar)
+
+	//check if 2^d is +-1 modulo N, if so, N is prop prime
+	if cmp192(x, montOne) == 0 || cmp192(x, montNegOne) == 0 {
+		return true
+	}
+
+	// for each x_i = x^(d * 2^i) for 0<i<s check if x_i = -1 modulo. If so, its likely prime
+	return exp2_iModN(x, montNegOne, N, nbar, s)
 
 	/*
 			Idea: Compute the Montgomery forms we need, choose R = 2^192 to make sure we always have R> N
@@ -313,39 +324,46 @@ func strongPRP(N uint192) bool {
 	*/
 }
 
-//<- Trust --- Dont Trust ->
-
 // REDC reduces C mod N using Montgomery reduction with β = 2^64, n = 3.
-// C is a 384-bit value stored as [6]uint64 (little-endian: C[0] least significant).
-// N is a 192-bit odd modulus. mu = -N^{-1} mod 2^192.
+// C is a 384-bit value stored as [7]uint64 (little-endian: C[0] least significant).
+// N is a 192-bit odd modulus.
+// mu = -N^{-1} mod 2^64 (precomputed Montgomery constant for β = 2^64).
 func REDC(C [7]uint64, Nuint uint192, mu uint64) uint192 {
-
 	N := [3]uint64{Nuint.Lo, Nuint.Mid, Nuint.Hi}
-	// Step 1: main loop
+
+	// Step 1: main loop over n = 3 limbs
 	for i := 0; i < 3; i++ {
+		// Current low limb
 		ci := C[i]
-		qi := ci * mu // automatically mod 2^64
+
+		// qi = ci * mu mod 2^64
+		qi := ci * mu
+
+		var carry uint64
 
 		// Add qi * N shifted by i limbs
-		var carry uint64
-		var hi uint64
-
-		// j runs over limbs of N
 		for j := 0; j < 3; j++ {
 			// Multiply qi * N[j]
-			lo, hiMul := bits.Mul64(qi, N[j])
+			loMul, hiMul := bits.Mul64(qi, N[j])
 
 			// Add into C[i+j] with carry
-			lo, c1 := bits.Add64(lo, C[i+j], 0)
+			lo, c1 := bits.Add64(loMul, C[i+j], 0)
 			lo, c2 := bits.Add64(lo, carry, 0)
 
 			C[i+j] = lo
-			carry = hiMul + c1 + c2
+
+			// carry = hiMul + c1 + c2 (in 64 bits, but we must avoid silent overflow)
+			sum, c3 := bits.Add64(hiMul, c1, 0)
+			sum, c4 := bits.Add64(sum, c2, 0)
+			carry = sum
+			_ = c3
+			_ = c4
 		}
 
 		// Propagate carry into higher limbs
 		k := i + 3
 		for carry != 0 {
+			var hi uint64
 			C[k], hi = bits.Add64(C[k], carry, 0)
 			carry = hi
 			k++
@@ -353,7 +371,11 @@ func REDC(C [7]uint64, Nuint uint192, mu uint64) uint192 {
 	}
 
 	// Step 2: R = C >> 192 bits (drop first 3 limbs)
-	R := uint192{Lo: C[3], Mid: C[4], Hi: C[5]}
+	R := uint192{
+		Lo:  C[3],
+		Mid: C[4],
+		Hi:  C[5],
+	}
 
 	// Step 3: final conditional subtraction
 	if cmp192(R, Nuint) >= 0 {
