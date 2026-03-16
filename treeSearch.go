@@ -25,7 +25,7 @@ func treeSearch(
 			fmt.Println("Total time: ", time.Now().Sub(buffer.start))
 		}
 
-		WriteToBin(indexes, exponents, buffer.w, buffer.buf)
+		WriteToBin(indexes, exponents, buffer.w, buffer.buf, omega)
 	}
 
 	index := indexes[position]

@@ -143,7 +143,7 @@ func search(omega, a, b int) {
 	w.Flush()
 	file.Close()
 
-	//fmt.Println(ReadRange("./data.bin", 0, 1000))
+	//fmt.Println(ReadRange("./data.bin", 0, 1000,omega))
 
 	end := time.Now()
 	fmt.Println("Time elapsed: ", end.Sub(buffer.start))

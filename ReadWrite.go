@@ -6,9 +6,9 @@ import (
 	"os"
 )
 
-func WriteToBin(indexes, exponents []int, w *bufio.Writer, buf []byte) {
+func WriteToBin(indexes, exponents []int, w *bufio.Writer, buf []byte, omega int) {
 	// Write indexes
-	for i := 0; i < 33; i++ {
+	for i := 0; i < omega; i++ {
 		v := uint16(indexes[i])
 		buf[2*i] = byte(v)
 		buf[2*i+1] = byte(v >> 8)
@@ -16,7 +16,7 @@ func WriteToBin(indexes, exponents []int, w *bufio.Writer, buf []byte) {
 	w.Write(buf)
 
 	// Write exponents
-	for i := 0; i < 33; i++ {
+	for i := 0; i < omega; i++ {
 		v := uint16(exponents[i])
 		buf[2*i] = byte(v)
 		buf[2*i+1] = byte(v >> 8)
@@ -24,9 +24,9 @@ func WriteToBin(indexes, exponents []int, w *bufio.Writer, buf []byte) {
 	w.Write(buf)
 }
 
-func ReadRange(path string, a, b int) ([][]uint16, error) {
-	const sliceLen = 33
-	const recordSize = sliceLen * 2 * 2 // indexes + exponents = 132 bytes
+func ReadRange(path string, a, b, omega int) ([][]uint16, error) {
+	sliceLen := omega
+	recordSize := sliceLen * 2 * 2 // indexes + exponents = 4 * omega bytes
 
 	file, err := os.Open(path)
 	if err != nil {
@@ -35,8 +35,8 @@ func ReadRange(path string, a, b int) ([][]uint16, error) {
 	defer file.Close()
 
 	// Compute byte offsets
-	start := int64(a) * recordSize
-	end := int64(b) * recordSize
+	start := int64(a * recordSize)
+	end := int64(b * recordSize)
 	length := end - start
 
 	// Seek to the start of the range
