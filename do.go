@@ -92,8 +92,8 @@ var nextPercent int
 var count int = 0
 var millions int = 0
 
-func search(omega, a, b int) {
-	file, _ := os.Create("data.bin")
+func search(omega, a, b int, path string) {
+	file, _ := os.Create(path)
 
 	w := bufio.NewWriterSize(file, 16*1024*1024) // 16MB buffer
 	buf := make([]byte, 33*2)                    // Reusable 66‑byte buffer for one 33‑element slice

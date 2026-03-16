@@ -3,3 +3,4 @@ depricated/
 createAll.sh
 bench.sh
 data.bin
+data/

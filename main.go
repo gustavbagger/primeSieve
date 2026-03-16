@@ -40,8 +40,25 @@ func main() {
 		if err != nil {
 			return
 		}
+
 		fmt.Printf("searching for omega = %v below %v*10^%v:\n", a, b, c)
-		search(a, b, c)
+		search(a, b, c, "data.bin")
+	case 5:
+		a, err := strconv.Atoi(os.Args[1])
+		if err != nil {
+			return
+		}
+		b, err := strconv.Atoi(os.Args[2])
+		if err != nil {
+			return
+		}
+		c, err := strconv.Atoi(os.Args[3])
+		if err != nil {
+			return
+		}
+
+		fmt.Printf("searching for omega = %v below %v*10^%v:\n", a, b, c)
+		search(a, b, c, "./data/"+os.Args[4]+".bin")
 	default:
 		fmt.Println("requires 1,2 or 3 args. Example: \n",
 			"'primeSieve <n> <a> <b>'\n", "computes omega = n with p-1< a*10^b")
