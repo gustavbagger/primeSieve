@@ -47,8 +47,11 @@ primeSieve <arg1> <arg2> <arg3>
     -> if the current index slice gives rise to n >= currentUpperBound bail out and backtrack to a lower loop and increment there
     -> if depth is maximal runs treeSearch with current set of primes found
 #treeSearch traverses admissible exponents for the squarefree number
-      -> if position is maximal, check if the current modularity conditions for a suitable choice of 'medium size' primes (relative to omega) are satisfied
-        -> if they are and n+1 is prime (using Miller-Rabin, 32 loops), print the prime indexes in primeList and their exponents
+      -> if position is maximal, check if n+1 is prime
+        -> Converts index & exponent set to the corresponding uint192
+        -> Run a base-2 Probable Prime test 
+          -> The multiplication and exponentiation is done via Montgomery arithmetic and using a 3-word quadratic REDC algorithm
+        -> if the test passes, print the prime indexes in primeList and their exponents
       -> if position is not maximal:
         -> update the sieve bound using current values
         -> update the modularity conditions for current exponents
