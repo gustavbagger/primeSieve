@@ -7,6 +7,7 @@ func recursiveLoop(
 	logs []float64,
 	currentLog float64,
 	exponents []int,
+	buffer buffer,
 ) Status {
 
 	if currentDepth == maxDepth {
@@ -22,6 +23,7 @@ func recursiveLoop(
 			primeList,
 			logs,
 			exponents,
+			buffer,
 		)
 		return Continue
 	}
@@ -54,6 +56,7 @@ func recursiveLoop(
 			logs,
 			newLog,
 			exponents,
+			buffer,
 		)
 
 		switch status {

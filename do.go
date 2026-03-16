@@ -1,12 +1,21 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"math"
+	"os"
 	"sort"
+	"time"
 
 	pr "github.com/fxtlabs/primes"
 )
+
+type buffer struct {
+	w     *bufio.Writer
+	buf   []byte
+	start time.Time
+}
 
 func computePrimeCutoff(omega int, boundLog float64, primeList []int, logs []float64) int {
 	s := bestS[omega]
@@ -81,8 +90,14 @@ var totalTopLevel int
 var doneTopLevel int
 var nextPercent int
 var count int = 0
+var millions int = 0
 
 func search(omega, a, b int) {
+	file, _ := os.Create("data.bin")
+
+	w := bufio.NewWriterSize(file, 16*1024*1024) // 16MB buffer
+	buf := make([]byte, 33*2)                    // Reusable 66‑byte buffer for one 33‑element slice
+	buffer := buffer{buf: buf, w: w, start: time.Now()}
 
 	boundLog := math.Log(float64(a) * math.Pow10(b))
 	fullPrimeList := pr.Sieve(1000000)
@@ -121,7 +136,16 @@ func search(omega, a, b int) {
 		logs,
 		0.0,
 		exponents,
+		buffer,
 	)
 	fmt.Println("--------------------------------------------")
 	fmt.Println("total count: ", count)
+	w.Flush()
+	file.Close()
+
+	//fmt.Println(ReadRange("./data.bin", 0, 1000))
+
+	end := time.Now()
+	fmt.Println("Time elapsed: ", end.Sub(buffer.start))
+
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 )
 
 func treeSearch(
@@ -11,6 +12,7 @@ func treeSearch(
 	indexes, allValues []int,
 	logs []float64,
 	exponents []int,
+	buffer buffer,
 ) {
 	if currentLog > optSieveBound {
 		return
@@ -18,8 +20,12 @@ func treeSearch(
 	_, valid := validExponentSet192(indexes, exponents, allValues)
 	if valid {
 		count++
-		fmt.Println("--------------------------------------------")
-		fmt.Printf("%v\n", indexes)
+		if count%100000 == 0 {
+			fmt.Printf("%.2e values found - expect 10^8 (for o=33).\n", float64(count))
+			fmt.Println("Total time: ", time.Now().Sub(buffer.start))
+		}
+
+		WriteToBin(indexes, exponents, buffer.w, buffer.buf)
 	}
 
 	index := indexes[position]
@@ -46,6 +52,7 @@ func treeSearch(
 			allValues,
 			logs,
 			exponents,
+			buffer,
 		)
 	}
 }

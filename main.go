@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"time"
 )
 
 func main() {
-	start := time.Now()
+
 	switch len(os.Args) {
 	case 2:
 		a, err := strconv.Atoi(os.Args[1])
@@ -47,6 +46,4 @@ func main() {
 		fmt.Println("requires 1,2 or 3 args. Example: \n",
 			"'primeSieve <n> <a> <b>'\n", "computes omega = n with p-1< a*10^b")
 	}
-	end := time.Now()
-	fmt.Println("Time elapsed: ", end.Sub(start))
 }
