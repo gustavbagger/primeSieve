@@ -324,63 +324,31 @@ func strongPRP(N uint192) bool {
 	*/
 }
 
+func bigAdder(A, B [7]uint64) [7]uint64 {
+	var out [7]uint64
+	var carry uint64
+	out[0], carry = bits.Add64(A[0], B[0], 0)
+	for i := 1; i < 7; i++ {
+		out[i], carry = bits.Add64(A[i], B[i], carry)
+	}
+	return out
+}
+
 // REDC reduces C mod N using Montgomery reduction with β = 2^64, n = 3.
 // C is a 384-bit value stored as [7]uint64 (little-endian: C[0] least significant).
 // N is a 192-bit odd modulus.
 // mu = -N^{-1} mod 2^64 (precomputed Montgomery constant for β = 2^64).
 func REDC(C [7]uint64, Nuint uint192, mu uint64) uint192 {
-	N := [3]uint64{Nuint.Lo, Nuint.Mid, Nuint.Hi}
-
-	// Step 1: main loop over n = 3 limbs
-	for i := 0; i < 3; i++ {
-		// Current low limb
-		ci := C[i]
-
-		// qi = ci * mu mod 2^64
-		qi := ci * mu
-
-		var carry uint64
-
-		// Add qi * N shifted by i limbs
-		for j := 0; j < 3; j++ {
-			// Multiply qi * N[j]
-			loMul, hiMul := bits.Mul64(qi, N[j])
-
-			// Add into C[i+j] with carry
-			lo, c1 := bits.Add64(loMul, C[i+j], 0)
-			lo, c2 := bits.Add64(lo, carry, 0)
-
-			C[i+j] = lo
-
-			// carry = hiMul + c1 + c2 (in 64 bits, but we must avoid silent overflow)
-			sum, c3 := bits.Add64(hiMul, c1, 0)
-			sum, c4 := bits.Add64(sum, c2, 0)
-			carry = sum
-			_ = c3
-			_ = c4
-		}
-
-		// Propagate carry into higher limbs
-		k := i + 3
-		for carry != 0 {
-			var hi uint64
-			C[k], hi = bits.Add64(C[k], carry, 0)
-			carry = hi
-			k++
-		}
+	q := mu * C[0]
+	C = bigAdder(C, mul192(uint192{Lo: q}, Nuint))
+	q = mu * C[1]
+	C = bigAdder(C, mul192(uint192{Mid: q}, Nuint))
+	q = mu * C[2]
+	C = bigAdder(C, mul192(uint192{Hi: q}, Nuint))
+	out := uint192{Lo: C[3], Mid: C[4], Hi: C[5]}
+	if cmp192(out, Nuint) >= 0 {
+		return sub192(out, Nuint)
+	} else {
+		return out
 	}
-
-	// Step 2: R = C >> 192 bits (drop first 3 limbs)
-	R := uint192{
-		Lo:  C[3],
-		Mid: C[4],
-		Hi:  C[5],
-	}
-
-	// Step 3: final conditional subtraction
-	if cmp192(R, Nuint) >= 0 {
-		R = sub192(R, Nuint)
-	}
-
-	return R
 }

@@ -682,3 +682,83 @@ func TestREDC(t *testing.T) {
 		})
 	}
 }
+
+func TestStrongPRP(t *testing.T) {
+	tests := []struct {
+		name string
+		N    *big.Int
+	}{
+		{
+			name: "Small prime 97",
+			N:    big.NewInt(97),
+		},
+		{
+			name: "Small composite 91",
+			N:    big.NewInt(91), // 7 * 13
+		},
+		{
+			name: "Prime 2^61-1",
+			N:    new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 61), big.NewInt(1)),
+		},
+		{
+			name: "Composite 2^61-1 * 3",
+			N: new(big.Int).Mul(
+				new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 61), big.NewInt(1)),
+				big.NewInt(3),
+			),
+		},
+		{
+			name: "Larger prime-ish 64-bit",
+			N:    big.NewInt(0).SetUint64(18446744073709551557), // known prime near 2^64
+		},
+		// --- Small primes ---
+		{"Prime 3", big.NewInt(3)},
+		{"Prime 5", big.NewInt(5)},
+		{"Prime 17", big.NewInt(17)},
+		{"Prime 257", big.NewInt(257)}, // Fermat prime
+
+		// --- Small composites ---
+		{"Composite 9", big.NewInt(9)},
+		{"Composite 21", big.NewInt(21)},
+		{"Composite 341", big.NewInt(341)}, // 341 = 11*31 (Fermat pseudoprime to base 2)
+
+		// --- Carmichael numbers (all are Fermat pseudoprimes) ---
+		{"Carmichael 561", big.NewInt(561)},   // 3 * 11 * 17
+		{"Carmichael 1105", big.NewInt(1105)}, // 5 * 13 * 17
+		{"Carmichael 1729", big.NewInt(1729)}, // 7 * 13 * 19
+		{"Carmichael 2465", big.NewInt(2465)}, // 5 * 17 * 29
+		{"Carmichael 6601", big.NewInt(6601)}, // 7 * 23 * 41
+
+		// --- Large primes (64‑bit range) ---
+		{"Large prime 2^61−1", new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 61), big.NewInt(1))},
+
+		// --- Large composites (64‑bit range) ---
+		{"Large composite 2^61−1 * 3",
+			new(big.Int).Mul(
+				new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 61), big.NewInt(1)),
+				big.NewInt(3),
+			),
+		},
+		// --- Edge cases ---
+		{"N = 2^64−1", new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 64), big.NewInt(1))},
+		{"N = 2^80+1", new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 80), big.NewInt(1))},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Convert to uint192
+			N7 := bigTo7Limbs(tt.N)
+
+			N192 := uint192{Lo: N7[0], Mid: N7[1], Hi: N7[2]}
+
+			got := strongPRP(N192)
+
+			// Use math/big primality test as reference
+			want := tt.N.ProbablyPrime(20)
+			//fmt.Println("Checking if ", tt.N, "is prime. Expecting: ", want, " Got: ", got)
+			if got != want {
+				t.Fatalf("strongPRP(%v) = %v, but big.Int.ProbablyPrime says %v", tt.N, got, want)
+			}
+		})
+	}
+}
