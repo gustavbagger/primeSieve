@@ -1,29 +1,26 @@
 package main
 
-func recursiveLoop(
-	currentDepth, maxDepth, maxIndex int,
+func (cfg *Config) recursiveLoop(
+	currentDepth, maxIndex int,
 	boundLog float64,
 	indexes, primeList []int,
 	logs []float64,
 	currentLog float64,
 	exponents []int,
-	buffer buffer,
 ) Status {
 
-	if currentDepth == maxDepth {
+	if currentDepth == cfg.omega {
 
-		optSieveBound := optSieveBoundLog(maxDepth, indexes, primeList, boundLog)
+		optSieveBound := optSieveBoundLog(cfg.omega, indexes, primeList, boundLog)
 
-		treeSearch(
+		cfg.treeSearch(
 			0,
-			maxDepth,
 			currentLog,
 			optSieveBound,
 			indexes,
 			primeList,
 			logs,
 			exponents,
-			buffer,
 		)
 		return Continue
 	}
@@ -32,23 +29,22 @@ func recursiveLoop(
 		startIndex = indexes[currentDepth-1] + 1
 	}
 
-	limit := maxIndex - (maxDepth - currentDepth) + 1
+	limit := maxIndex - (cfg.omega - currentDepth) + 1
 	for i := startIndex; i < limit; i++ {
 
 		indexes[currentDepth] = i
 
 		newLog := currentLog + logs[i]
 
-		remainingDepth := maxDepth - (currentDepth + 1)
+		remainingDepth := cfg.omega - (currentDepth + 1)
 		nextIndex := i + 1
 
 		if !canComplete(boundLog, newLog, nextIndex, remainingDepth, logs) {
 			break
 		}
 
-		status := recursiveLoop(
+		status := cfg.recursiveLoop(
 			currentDepth+1,
-			maxDepth,
 			maxIndex,
 			boundLog,
 			indexes,
@@ -56,7 +52,6 @@ func recursiveLoop(
 			logs,
 			newLog,
 			exponents,
-			buffer,
 		)
 
 		switch status {

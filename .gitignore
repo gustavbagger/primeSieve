@@ -3,4 +3,5 @@ depricated/
 createAll.sh
 bench.sh
 data.bin
-data/
+data/*
+!data/.gitkeep

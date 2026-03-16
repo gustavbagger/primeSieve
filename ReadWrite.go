@@ -1,31 +1,32 @@
 package main
 
 import (
-	"bufio"
+	"fmt"
 	"io"
 	"os"
+	"time"
 )
 
-func WriteToBin(indexes, exponents []int, w *bufio.Writer, buf []byte, omega int) {
+func (cfg *Config) WriteToBin(indexes, exponents []int) {
 	// Write indexes
-	for i := 0; i < omega; i++ {
+	for i := 0; i < cfg.omega; i++ {
 		v := uint16(indexes[i])
-		buf[2*i] = byte(v)
-		buf[2*i+1] = byte(v >> 8)
+		cfg.buf[2*i] = byte(v)
+		cfg.buf[2*i+1] = byte(v >> 8)
 	}
-	w.Write(buf)
+	cfg.w.Write(cfg.buf)
 
 	// Write exponents
-	for i := 0; i < omega; i++ {
+	for i := 0; i < cfg.omega; i++ {
 		v := uint16(exponents[i])
-		buf[2*i] = byte(v)
-		buf[2*i+1] = byte(v >> 8)
+		cfg.buf[2*i] = byte(v)
+		cfg.buf[2*i+1] = byte(v >> 8)
 	}
-	w.Write(buf)
+	cfg.w.Write(cfg.buf)
 }
 
-func ReadRange(path string, a, b, omega int) ([][]uint16, error) {
-	sliceLen := omega
+func (cfg *Config) ReadRange(path string, a, b int) ([][]uint16, error) {
+	sliceLen := cfg.omega
 	recordSize := sliceLen * 2 * 2 // indexes + exponents = 4 * omega bytes
 
 	file, err := os.Open(path)
@@ -70,4 +71,14 @@ func ReadRange(path string, a, b, omega int) ([][]uint16, error) {
 	}
 
 	return out, nil
+}
+
+func (cfg *Config) handleSuccess(indexes,exponents []int) {
+		cfg.count++
+		if cfg.count%100000 == 0 {
+			fmt.Printf("%.2e values found - expect 10^8 (for o=33).\n", float64(cfg.count))
+			fmt.Println("Total time: ", time.Now().Sub(cfg.start))
+		}
+
+		cfg.WriteToBin(indexes, exponents)
 }
