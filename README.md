@@ -51,7 +51,7 @@ primeSieve <arg1> <arg2> <arg3>
         -> Converts index & exponent set to the corresponding uint192
         -> Run a base-2 Probable Prime test 
           -> The multiplication and exponentiation is done via Montgomery arithmetic and using a 3-word quadratic REDC algorithm
-        -> if the test passes, print the prime indexes in primeList and their exponents
+        -> if the test passes, write index and exponent set to file ./data.bin in 16MB batches
       -> if position is not maximal:
         -> update the sieve bound using current values
         -> update the modularity conditions for current exponents
