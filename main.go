@@ -58,9 +58,21 @@ func main() {
 		}
 
 		fmt.Printf("searching for omega = %v below %v*10^%v:\n", a, b, c)
-		search(a, b, c,"./data/" + os.Args[4]+".bin")
+		search(a, b, c, "./data/"+os.Args[4]+".bin")
 	default:
 		fmt.Println("requires 1,2 or 3 args. Example: \n",
 			"'primeSieve <n> <a> <b>'\n", "computes omega = n with p-1< a*10^b")
 	}
 }
+
+/*
+func main() {
+
+	a := 33
+	b := 28
+	c := 54
+	fmt.Printf("searching for omega = %v below %v*10^%v:\n", a, b, c)
+	search(a, b, c, fmt.Sprintf("./data/o%v.bin", a))
+}
+
+*/

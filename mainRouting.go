@@ -11,14 +11,6 @@ import (
 	pr "github.com/fxtlabs/primes"
 )
 
-type Config struct {
-	w     *bufio.Writer
-	buf   []byte
-	start time.Time
-	count uint64
-	omega int
-}
-
 func (cfg *Config) computePrimeCutoff(boundLog float64, primeList []int, logs []float64) int {
 	s := bestS[cfg.omega]
 
@@ -88,13 +80,12 @@ func printIntervals(omegaMax, omegaMin int) {
 	}
 }
 
-
 func search(omega, a, b int, path string) {
 	file, _ := os.Create(path)
 
 	w := bufio.NewWriterSize(file, 16*1024*1024) // 16MB buffer
-	buf := make([]byte, omega*2)                    // Reusable 66‑byte buffer for one 33‑element slice
-	cfg := Config{buf: buf, w: w, start: time.Now(), count: 0,omega: omega}
+	buf := make([]byte, omega*2)                 // Reusable 66‑byte buffer for one 33‑element slice
+	cfg := Config{buf: buf, w: w, start: time.Now(), count: 0, omega: omega}
 
 	boundLog := math.Log(float64(a) * math.Pow10(b))
 	fullPrimeList := pr.Sieve(1000000)
@@ -120,7 +111,7 @@ func search(omega, a, b int, path string) {
 	for i := range exponents {
 		exponents[i] = 1
 	}
-	cfg.recursiveLoop(
+	cfg.recursionIndex(
 		0,
 		maxIndex,
 		boundLog,

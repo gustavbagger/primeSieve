@@ -1,9 +1,6 @@
 package main
 
-import (
-)
-
-func (cfg *Config) treeSearch(
+func (cfg *Config) recursionExponent(
 	position int,
 	currentLog, optSieveBound float64,
 	indexes, allValues []int,
@@ -15,7 +12,7 @@ func (cfg *Config) treeSearch(
 	}
 	_, valid := validExponentSet192(indexes, exponents, allValues)
 	if valid {
-		cfg.handleSuccess(indexes,exponents)
+		cfg.handleSuccess(indexes, exponents)
 
 		cfg.WriteToBin(indexes, exponents)
 	}
@@ -35,7 +32,7 @@ func (cfg *Config) treeSearch(
 
 		newLog := currentLog + float64(e)*logp
 
-		cfg.treeSearch(
+		cfg.recursionExponent(
 			position+1,
 			newLog,
 			optSieveBound,

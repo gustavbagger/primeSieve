@@ -1,6 +1,6 @@
 package main
 
-func (cfg *Config) recursiveLoop(
+func (cfg *Config) recursionIndex(
 	currentDepth, maxIndex int,
 	boundLog float64,
 	indexes, primeList []int,
@@ -13,7 +13,7 @@ func (cfg *Config) recursiveLoop(
 
 		optSieveBound := optSieveBoundLog(cfg.omega, indexes, primeList, boundLog)
 
-		cfg.treeSearch(
+		cfg.recursionExponent(
 			0,
 			currentLog,
 			optSieveBound,
@@ -43,7 +43,7 @@ func (cfg *Config) recursiveLoop(
 			break
 		}
 
-		status := cfg.recursiveLoop(
+		status := cfg.recursionIndex(
 			currentDepth+1,
 			maxIndex,
 			boundLog,

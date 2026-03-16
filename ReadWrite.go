@@ -1,10 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"os"
-	"time"
 )
 
 func (cfg *Config) WriteToBin(indexes, exponents []int) {
@@ -71,14 +69,4 @@ func (cfg *Config) ReadRange(path string, a, b int) ([][]uint16, error) {
 	}
 
 	return out, nil
-}
-
-func (cfg *Config) handleSuccess(indexes,exponents []int) {
-		cfg.count++
-		if cfg.count%100000 == 0 {
-			fmt.Printf("%.2e values found - expect 10^8 (for o=33).\n", float64(cfg.count))
-			fmt.Println("Total time: ", time.Now().Sub(cfg.start))
-		}
-
-		cfg.WriteToBin(indexes, exponents)
 }
