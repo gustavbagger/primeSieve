@@ -38,15 +38,15 @@ primeSieve <arg1> <arg2> <arg3>
 -> runs search(arg1,arg2,arg3) corresponding to omega = arg1 with p<= arg2 * 10^arg3
   -> preloads all primes p <= 10^6
   -> computes initial optimal value for s
-#saves storing a huge slice with unneeded primes to loop over
+saves storing a huge slice with unneeded primes to loop over
   -> prunes primeList down to the smallest size needed for exhaustiveness
-#generates all squarefree numbers in the interval sequentially via recursive nested loops
+generates all squarefree numbers in the interval sequentially via recursive nested loops
   -> runs recursiveLoop at initial depth 0
-#squarefree numbers are iterated as index slices of primeList
+squarefree numbers are iterated as index slices of primeList
     -> if depth is not maximal, recurse through indexes in current depth
     -> if the current index slice gives rise to n >= currentUpperBound bail out and backtrack to a lower loop and increment there
     -> if depth is maximal runs treeSearch with current set of primes found
-#treeSearch traverses admissible exponents for the squarefree number
+treeSearch traverses admissible exponents for the squarefree number
       -> if position is maximal, check if n+1 is prime
         -> Converts index & exponent set to the corresponding uint192
         -> Run a base-2 Probable Prime test 
