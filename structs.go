@@ -11,6 +11,7 @@ type Config struct {
 	start time.Time
 	count uint64
 	omega int
+	s     int
 }
 
 // unsigned 192-bit int

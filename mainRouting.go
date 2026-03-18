@@ -12,7 +12,7 @@ import (
 )
 
 func (cfg *Config) computePrimeCutoff(boundLog float64, primeList []int, logs []float64) int {
-	s := sieve.bestS[cfg.omega]
+	s := cfg.s
 
 	// log of product of smallest ω−1 primes
 	baseLog := 0.0
@@ -32,7 +32,7 @@ func (cfg *Config) computePrimeCutoff(boundLog float64, primeList []int, logs []
 		}
 		indexes[cfg.omega-1] = idx
 
-		sieveBound := pSieveLog(cfg.omega, s, indexes, primeList)
+		sieveBound := sv.pSieveLog(cfg.omega, s, indexes, primeList)
 		effectiveBound := math.Min(boundLog, sieveBound)
 
 		if logMin <= effectiveBound {
