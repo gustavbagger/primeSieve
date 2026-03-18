@@ -12,7 +12,7 @@ import (
 )
 
 func (cfg *Config) computePrimeCutoff(boundLog float64, primeList []int, logs []float64) int {
-	s := bestS[cfg.omega]
+	s := sieve.bestS[cfg.omega]
 
 	// log of product of smallest ω−1 primes
 	baseLog := 0.0
@@ -111,7 +111,7 @@ func search(omega, a, b int, path string) {
 	for i := range exponents {
 		exponents[i] = 1
 	}
-	cfg.recursionIndex(
+	cfg.RecursionIndex(
 		0,
 		maxIndex,
 		boundLog,

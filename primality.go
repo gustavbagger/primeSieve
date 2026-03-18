@@ -35,9 +35,8 @@ func validExponentSet192(indexes, exponents, allValues []int) (uint192, bool) {
 
 func (cfg *Config) handleSuccess(indexes, exponents []int) {
 	cfg.count++
-	if cfg.count%100000 == 0 {
-		fmt.Printf("%.2e values found - expect 10^8 (for o=33).\n", float64(cfg.count))
-		fmt.Println("Total time: ", time.Now().Sub(cfg.start))
+	if cfg.count%1000000 == 0 {
+		fmt.Printf("vals: %.2e, time: %v.\n", float64(cfg.count), time.Now().Sub(cfg.start).Round(time.Second))
 	}
 
 	cfg.WriteToBin(indexes, exponents)

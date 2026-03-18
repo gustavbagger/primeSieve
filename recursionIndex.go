@@ -1,6 +1,6 @@
 package main
 
-func (cfg *Config) recursionIndex(
+func (cfg *Config) RecursionIndex(
 	currentDepth, maxIndex int,
 	boundLog float64,
 	indexes, primeList []int,
@@ -43,7 +43,7 @@ func (cfg *Config) recursionIndex(
 			break
 		}
 
-		status := cfg.recursionIndex(
+		status := cfg.RecursionIndex(
 			currentDepth+1,
 			maxIndex,
 			boundLog,

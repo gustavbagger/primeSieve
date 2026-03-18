@@ -1,4 +1,4 @@
-package main
+package sieve
 
 import "math"
 
@@ -12,8 +12,8 @@ func deltaSum(list []int) float64 {
 
 var bestS []int
 
-func initBestS(omegaMax int, primeList []int) {
-	bestS = make([]int, omegaMax+1)
+func InitBestS(omegaMax int, primeList []int) []int {
+	bestS := make([]int, omegaMax+1)
 	for omega := 1; omega <= omegaMax; omega++ {
 		sBest := 0
 		currentBest := float64(int(1) << (omega + 1))
@@ -30,17 +30,18 @@ func initBestS(omegaMax int, primeList []int) {
 		}
 		bestS[omega] = sBest
 	}
+	return bestS
 }
 
-func optSieveBoundLog(omega int, indexes, primeList []int, boundLog float64) float64 {
+func OptSieveBoundLog(omega int, indexes, primeList []int, boundLog float64) float64 {
 	s := bestS[omega]
 	if s == 0 || len(indexes) < s {
 		return boundLog
 	}
-	return math.Min(boundLog, pSieveLog(omega, s, indexes, primeList))
+	return math.Min(boundLog, PSieveLog(omega, s, indexes, primeList))
 }
 
-func pSieveLog(omega, s int, indexes, primeList []int) float64 {
+func PSieveLog(omega, s int, indexes, primeList []int) float64 {
 	last := make([]int, s)
 	for i := 0; i < s; i++ {
 		last[i] = primeList[indexes[omega-s+i]]
