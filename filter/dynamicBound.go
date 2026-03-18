@@ -1,8 +1,10 @@
 package filter
 
-import "math"
+import (
+	"math"
+)
 
-func deltaSum(list []int) float64 {
+func DeltaSum(list []int) float64 {
 	var sum float64
 	for _, p := range list {
 		sum -= 1.0 / float64(p)
@@ -16,14 +18,16 @@ func InitBestS(omegaMax int, primeList []int) []int {
 		sBest := 0
 		currentBest := float64(int(1) << (omega + 1))
 		for s := 1; s <= omega; s++ {
-			delta := deltaSum(primeList[omega-s : omega])
+			delta := DeltaSum(primeList[omega-s : omega])
 			if delta <= 0.0 {
 				break
 			}
 			currentTry := (2.0 + float64(s-1)/delta) * float64(int(1)<<(omega+1-s))
 			if currentTry < currentBest {
 				currentBest = currentTry
+
 				sBest = s
+
 			}
 		}
 		bestS[omega] = sBest
@@ -43,7 +47,7 @@ func PSieveLog(omega, s int, indexes, primeList []int) float64 {
 	for i := 0; i < s; i++ {
 		last[i] = primeList[indexes[omega-s+i]]
 	}
-	delta := deltaSum(last)
+	delta := DeltaSum(last)
 	if delta <= 0.0 {
 		return 0.0
 	}

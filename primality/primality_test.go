@@ -1,4 +1,4 @@
-package main
+package primality
 
 import (
 	"math/rand"
@@ -31,7 +31,7 @@ func BenchmarkValidExponentSets(b *testing.B) {
 	b.Run("uint192 version", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for j := 0; j < max; j++ {
-				validExponentSet192(cases[j], exponents, allValues)
+				ValidExponentSet192(cases[j], exponents, allValues)
 			}
 		}
 	})
@@ -39,7 +39,7 @@ func BenchmarkValidExponentSets(b *testing.B) {
 	b.Run("big.Int version", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for j := 0; j < max; j++ {
-				validExponentSet(cases[j], exponents, allValues)
+				ValidExponentSet(cases[j], exponents, allValues)
 			}
 		}
 	})

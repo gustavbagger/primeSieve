@@ -9,30 +9,31 @@ import (
 	"time"
 
 	pr "github.com/fxtlabs/primes"
+	"github.com/gustavbagger/primeSieve/filter"
+	"github.com/gustavbagger/primeSieve/recursion"
 )
 
-func (cfg *Config) computePrimeCutoff(boundLog float64, primeList []int, logs []float64) int {
-	s := cfg.s
+func computePrimeCutoff(boundLog float64, primeList []int, logs []float64, s, omega int) int {
 
 	// log of product of smallest ω−1 primes
 	baseLog := 0.0
-	for i := 0; i < cfg.omega-1; i++ {
+	for i := 0; i < omega-1; i++ {
 		baseLog += logs[i]
 	}
 
 	// Try primes from largest to smallest
-	for idx := len(primeList) - 1; idx >= cfg.omega-1; idx-- {
+	for idx := len(primeList) - 1; idx >= omega-1; idx-- {
 		p := primeList[idx]
 		logMin := baseLog + math.Log(float64(p))
 
 		// Build hypothetical indexes: smallest ω−1 primes + p
-		indexes := make([]int, cfg.omega)
-		for i := 0; i < cfg.omega-1; i++ {
+		indexes := make([]int, omega)
+		for i := 0; i < omega-1; i++ {
 			indexes[i] = i
 		}
-		indexes[cfg.omega-1] = idx
+		indexes[omega-1] = idx
 
-		sieveBound := sv.pSieveLog(cfg.omega, s, indexes, primeList)
+		sieveBound := filter.PSieveLog(omega, s, indexes, primeList)
 		effectiveBound := math.Min(boundLog, sieveBound)
 
 		if logMin <= effectiveBound {
@@ -41,7 +42,7 @@ func (cfg *Config) computePrimeCutoff(boundLog float64, primeList []int, logs []
 	}
 
 	// fallback: only smallest ω primes fit
-	return primeList[cfg.omega-1]
+	return primeList[omega-1]
 }
 
 func printIntervals(omegaMax, omegaMin int) {
@@ -52,7 +53,7 @@ func printIntervals(omegaMax, omegaMin int) {
 		deltaBest := 1.0
 		currentBest := float64(int(1) << (omega + 1))
 		for s := 1; s <= omega; s++ {
-			delta := deltaSum(primeList[omega-s : omega])
+			delta := filter.DeltaSum(primeList[omega-s : omega])
 			if delta <= 0.0 {
 				break
 			}
@@ -85,7 +86,6 @@ func search(omega, a, b int, path string) {
 
 	w := bufio.NewWriterSize(file, 16*1024*1024) // 16MB buffer
 	buf := make([]byte, omega*2)                 // Reusable 66‑byte buffer for one 33‑element slice
-	cfg := Config{buf: buf, w: w, start: time.Now(), count: 0, omega: omega}
 
 	boundLog := math.Log(float64(a) * math.Pow10(b))
 	fullPrimeList := pr.Sieve(1000000)
@@ -94,10 +94,11 @@ func search(omega, a, b int, path string) {
 	for i, p := range fullPrimeList {
 		logs[i] = math.Log(float64(p))
 	}
+	s := filter.InitBestS(omega, fullPrimeList)[omega]
 
-	initBestS(cfg.omega, fullPrimeList)
+	cfg := recursion.NewConfig(w, buf, omega, s)
 
-	cutoff := cfg.computePrimeCutoff(boundLog, fullPrimeList, logs)
+	cutoff := computePrimeCutoff(boundLog, fullPrimeList, logs, s, omega)
 	fmt.Println("Exact prime cutoff=", cutoff)
 
 	limit := sort.SearchInts(fullPrimeList, cutoff+1)
@@ -105,9 +106,9 @@ func search(omega, a, b int, path string) {
 	logs = logs[:limit]
 
 	maxIndex := len(primeList) - 1
-	indexes := make([]int, cfg.omega)
+	indexes := make([]int, omega)
 
-	var exponents []int = make([]int, cfg.omega)
+	var exponents []int = make([]int, omega)
 	for i := range exponents {
 		exponents[i] = 1
 	}
@@ -122,13 +123,13 @@ func search(omega, a, b int, path string) {
 		exponents,
 	)
 	fmt.Println("--------------------------------------------")
-	fmt.Println("total count: ", cfg.count)
+	fmt.Println("total count: ", cfg.Count)
 	w.Flush()
 	file.Close()
 
 	//fmt.Println(ReadRange("./data.bin", 0, 1000,omega))
 
 	end := time.Now()
-	fmt.Println("Time elapsed: ", end.Sub(cfg.start))
+	fmt.Println("Time elapsed: ", end.Sub(cfg.Start))
 
 }

@@ -1,4 +1,8 @@
-package main
+package recursion
+
+import (
+	"github.com/gustavbagger/primeSieve/filter"
+)
 
 func (cfg *Config) RecursionIndex(
 	currentDepth, maxIndex int,
@@ -11,7 +15,7 @@ func (cfg *Config) RecursionIndex(
 
 	if currentDepth == cfg.omega {
 
-		optSieveBound := optSieveBoundLog(cfg.omega, indexes, primeList, boundLog)
+		optSieveBound := filter.OptSieveBoundLog(cfg.omega, cfg.s, indexes, primeList, boundLog)
 
 		cfg.recursionExponent(
 			0,

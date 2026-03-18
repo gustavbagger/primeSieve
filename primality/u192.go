@@ -1,8 +1,15 @@
-package main
+package primality
 
 import (
 	"math/bits"
 )
+
+// unsigned 192-bit int
+type uint192 struct {
+	Lo  uint64
+	Mid uint64
+	Hi  uint64
+}
 
 func cmp192(a, b uint192) int {
 	if a.Hi != b.Hi {
