@@ -1,19 +1,8 @@
 package recursion
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/gustavbagger/primeSieve/primality"
 )
-
-func (cfg *Config) handleSuccess(indexes, exponents []int) {
-	cfg.Count++
-	if cfg.Count%1000000 == 0 {
-		fmt.Printf("vals: %.2e, time: %v.\n", float64(cfg.Count), time.Since(cfg.Start).Round(time.Second))
-	}
-	cfg.WriteToBin(indexes, exponents)
-}
 
 func (cfg *Config) recursionExponent(
 	position int,

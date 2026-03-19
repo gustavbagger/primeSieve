@@ -2,6 +2,7 @@ package recursion
 
 import (
 	"bufio"
+	"fmt"
 	"time"
 )
 
@@ -21,4 +22,12 @@ func NewConfig(
 	s int,
 ) Config {
 	return Config{buf: buf, w: w, Start: time.Now(), Count: 0, omega: omega, s: s}
+}
+
+func (cfg *Config) handleSuccess(indexes, exponents []int) {
+	cfg.Count++
+	if cfg.Count%1000000 == 0 {
+		fmt.Printf("vals: %.2e, time: %v.\n", float64(cfg.Count), time.Since(cfg.Start).Round(time.Second))
+	}
+	cfg.WriteToBin(indexes, exponents)
 }

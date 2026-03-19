@@ -57,7 +57,8 @@ func printIntervals(omegaMax, omegaMin int) {
 			if delta <= 0.0 {
 				break
 			}
-			currentTry := (2.0 + float64(s-1)/delta) * float64(int(1)<<(omega+1-s))
+
+			currentTry := (2.0 + float64(s-1)/delta) * float64(int(1)<<(omega-s)) * math.Sqrt(2*filter.C)
 			if currentTry < currentBest {
 				currentBest = currentTry
 				sBest = s

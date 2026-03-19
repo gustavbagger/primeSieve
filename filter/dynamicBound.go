@@ -4,6 +4,8 @@ import (
 	"math"
 )
 
+var C float64 = 1.43403
+
 func DeltaSum(list []int) float64 {
 	var sum float64
 	for _, p := range list {
@@ -22,7 +24,7 @@ func InitBestS(omegaMax int, primeList []int) []int {
 			if delta <= 0.0 {
 				break
 			}
-			currentTry := (2.0 + float64(s-1)/delta) * float64(int(1)<<(omega+1-s))
+			currentTry := (2.0 + float64(s-1)/delta) * float64(int(1)<<(omega-s)) * math.Sqrt(2*C)
 			if currentTry < currentBest {
 				currentBest = currentTry
 
@@ -51,5 +53,5 @@ func PSieveLog(omega, s int, indexes, primeList []int) float64 {
 	if delta <= 0.0 {
 		return 0.0
 	}
-	return 16 * (math.Log(2*delta+float64(s-1)) + float64(omega+1-s)*math.Log(2.0) - math.Log(delta))
+	return (16.0)*(math.Log(2*delta+float64(s-1))+float64(omega-s)*math.Log(2.0)-math.Log(delta)) + 8.0*math.Log(2.0*C)
 }
