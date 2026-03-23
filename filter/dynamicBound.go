@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-var C float64 = 1.43403
+var C float64 = 1.7
 
 func DeltaSum(list []int) float64 {
 	var sum float64
