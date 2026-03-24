@@ -4,7 +4,10 @@ import (
 	"math"
 )
 
-var C float64 = 1.7
+// 1.7 works, 1.43393 works if g(p)<p^0.622312 (since h = p^1/4 is admissible)
+var C float64 = 1.43393
+
+var PrimeListUpperBound int = 1 << 20
 
 func DeltaSum(list []int) float64 {
 	var sum float64

@@ -42,7 +42,10 @@ func main() {
 		}
 
 		fmt.Printf("searching for omega = %v below %v*10^%v:\n", a, b, c)
-		search(a, b, c, "data.bin")
+		err = search(a, b, c, "data.bin")
+		if err != nil {
+			fmt.Println("Error, problem with primeList length")
+		}
 	case 5:
 		a, err := strconv.Atoi(os.Args[1])
 		if err != nil {
@@ -58,7 +61,10 @@ func main() {
 		}
 
 		fmt.Printf("searching for omega = %v below %v*10^%v:\n", a, b, c)
-		search(a, b, c, "./data/"+os.Args[4]+".bin")
+		err = search(a, b, c, "./data/"+os.Args[4]+".bin")
+		if err != nil {
+			fmt.Println("Error, problem with primeList length")
+		}
 	default:
 		fmt.Println("requires 1,2 or 3 args. Example: \n",
 			"'primeSieve <n> <a> <b>'\n", "computes omega = n with p-1< a*10^b")

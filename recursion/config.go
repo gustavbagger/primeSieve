@@ -26,7 +26,7 @@ func NewConfig(
 
 func (cfg *Config) handleSuccess(indexes, exponents []int) {
 	cfg.Count++
-	if cfg.Count%1000000 == 0 {
+	if cfg.Count%100000 == 0 {
 		fmt.Printf("vals: %.2e, time: %v.\n", float64(cfg.Count), time.Since(cfg.Start).Round(time.Second))
 	}
 	cfg.WriteToBin(indexes, exponents)

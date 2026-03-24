@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -13,36 +14,42 @@ import (
 	"github.com/gustavbagger/primeSieve/recursion"
 )
 
-func computePrimeCutoff(boundLog float64, primeList []int, logs []float64, s, omega int) int {
+func computePrimeCutoff(boundLog float64, fullPimeList []int, logs []float64, s, omega int) (int, error) {
 
 	// log of product of smallest ω−1 primes
 	baseLog := 0.0
 	for i := 0; i < omega-1; i++ {
 		baseLog += logs[i]
 	}
+	indexes := make([]int, omega)
+	for i := 0; i < omega-1; i++ {
+		indexes[i] = i
+	}
+
+	indexes[omega-1] = len(fullPimeList) - 1
+	p := fullPimeList[indexes[omega-1]]
+	logMin := baseLog + math.Log(float64(p))
+	if logMin <= boundLog &&
+		logMin <= filter.PSieveLog(omega, s, indexes, fullPimeList) {
+		// need more primes
+		return 0, errors.New("Need more primes initiated")
+	}
 
 	// Try primes from largest to smallest
-	for idx := len(primeList) - 1; idx >= omega-1; idx-- {
-		p := primeList[idx]
-		logMin := baseLog + math.Log(float64(p))
+	for idx := len(fullPimeList) - 2; idx >= omega-1; idx-- {
+		p = fullPimeList[idx]
+		logMin = baseLog + math.Log(float64(p))
 
-		// Build hypothetical indexes: smallest ω−1 primes + p
-		indexes := make([]int, omega)
-		for i := 0; i < omega-1; i++ {
-			indexes[i] = i
-		}
 		indexes[omega-1] = idx
 
-		sieveBound := filter.PSieveLog(omega, s, indexes, primeList)
-		effectiveBound := math.Min(boundLog, sieveBound)
+		sieveBound := filter.PSieveLog(omega, s, indexes, fullPimeList)
 
-		if logMin <= effectiveBound {
-			return p
+		if logMin <= boundLog && logMin <= sieveBound {
+			return p, nil
 		}
 	}
 
-	// fallback: only smallest ω primes fit
-	return primeList[omega-1]
+	return 0, errors.New("Interval is empty")
 }
 
 func printIntervals(omegaMax, omegaMin int) {
@@ -82,14 +89,14 @@ func printIntervals(omegaMax, omegaMin int) {
 	}
 }
 
-func search(omega, a, b int, path string) {
+func search(omega, a, b int, path string) error {
 	file, _ := os.Create(path)
 
 	w := bufio.NewWriterSize(file, 16*1024*1024) // 16MB buffer
 	buf := make([]byte, omega*2)                 // Reusable 66‑byte buffer for one 33‑element slice
 
 	boundLog := math.Log(float64(a) * math.Pow10(b))
-	fullPrimeList := pr.Sieve(1000000)
+	fullPrimeList := pr.Sieve(filter.PrimeListUpperBound)
 	logs := make([]float64, len(fullPrimeList))
 
 	for i, p := range fullPrimeList {
@@ -99,11 +106,18 @@ func search(omega, a, b int, path string) {
 
 	cfg := recursion.NewConfig(w, buf, omega, s)
 
-	cutoff := computePrimeCutoff(boundLog, fullPrimeList, logs, s, omega)
+	cutoff, err := computePrimeCutoff(boundLog, fullPrimeList, logs, s, omega)
+	if err != nil {
+		return err
+	}
 	fmt.Println("Exact prime cutoff=", cutoff)
 
 	limit := sort.SearchInts(fullPrimeList, cutoff+1)
-	primeList := fullPrimeList[:limit]
+	primeList := make([]int, limit)
+	for i := 0; i < limit; i++ {
+		primeList[i] = fullPrimeList[i]
+	}
+
 	logs = logs[:limit]
 
 	maxIndex := len(primeList) - 1
@@ -132,5 +146,5 @@ func search(omega, a, b int, path string) {
 
 	end := time.Now()
 	fmt.Println("Time elapsed: ", end.Sub(cfg.Start))
-
+	return nil
 }
