@@ -27,7 +27,14 @@ func NewConfig(
 func (cfg *Config) handleSuccess(indexes, exponents []int) {
 	cfg.Count++
 	if cfg.Count%100000 == 0 {
-		fmt.Printf("vals: %.2e, time: %v.\n", float64(cfg.Count), time.Since(cfg.Start).Round(time.Second))
+		var pivot int
+		for i := 0; i < cfg.omega; i++ {
+			if i != indexes[i] {
+				pivot = i
+				break
+			}
+		}
+		fmt.Printf("vals: %.2e, pivot: %v, time: %v.\n", float64(cfg.Count), pivot, time.Since(cfg.Start).Round(time.Second))
 	}
 	cfg.WriteToBin(indexes, exponents)
 }
