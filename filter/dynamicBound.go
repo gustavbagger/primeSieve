@@ -4,8 +4,8 @@ import (
 	"math"
 )
 
-// 1.7 works, 1.43393 works if g(p)<p^0.622312 (since h = p^1/4 is admissible)
-var C float64 = 1.43393
+// 1.7 works, 1.4193747081548531 works if g(p)<p^0.621526 (since h = 0.82 * p^1/4 is admissible)
+var C float64 = 1.4193747081548531
 
 var PrimeListUpperBound int = 1 << 20
 
